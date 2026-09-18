@@ -67,7 +67,7 @@ async function getGradeStats(req, res, next) {
       { $group: { _id: '$grade', count: { $sum: 1 } } }
     ];
 
-    const results = await StudentRegistration.aggregate(pipeline).maxTimeMS(QUERY_TIMEOUT_MS);
+    const results = await StudentRegistration.aggregate(pipeline).option({ maxTimeMS: QUERY_TIMEOUT_MS });
 
     const gradeMap = {};
     results.forEach(r => { if (r._id !== null) gradeMap[r._id] = r.count; });
@@ -108,7 +108,7 @@ async function getSchoolStats(req, res, next) {
             }
           }
         }
-      ]).maxTimeMS(QUERY_TIMEOUT_MS),
+      ]).option({ maxTimeMS: QUERY_TIMEOUT_MS }),
       TeacherRegistration.aggregate([
         { $match: { deleted: false } },
         {
@@ -117,7 +117,7 @@ async function getSchoolStats(req, res, next) {
             totalTeachers: { $sum: 1 }
           }
         }
-      ]).maxTimeMS(QUERY_TIMEOUT_MS)
+      ]).option({ maxTimeMS: QUERY_TIMEOUT_MS })
     ]);
 
     const schoolMap = {};
@@ -179,7 +179,7 @@ async function getOperatorStats(req, res, next) {
             students: { $sum: 1 }
           }
         }
-      ]).maxTimeMS(QUERY_TIMEOUT_MS),
+      ]).option({ maxTimeMS: QUERY_TIMEOUT_MS }),
       TeacherRegistration.aggregate([
         { $match: { deleted: false } },
         {
@@ -189,7 +189,7 @@ async function getOperatorStats(req, res, next) {
             teachers: { $sum: 1 }
           }
         }
-      ]).maxTimeMS(QUERY_TIMEOUT_MS)
+      ]).option({ maxTimeMS: QUERY_TIMEOUT_MS })
     ]);
 
     const opMap = {};
@@ -248,7 +248,7 @@ async function getHourlyStats(req, res, next) {
           count: { $sum: 1 }
         }
       }
-    ]).maxTimeMS(QUERY_TIMEOUT_MS);
+    ]).option({ maxTimeMS: QUERY_TIMEOUT_MS });
 
     const teacherHourly = await TeacherRegistration.aggregate([
       { $match: { deleted: false } },
@@ -258,7 +258,7 @@ async function getHourlyStats(req, res, next) {
           count: { $sum: 1 }
         }
       }
-    ]).maxTimeMS(QUERY_TIMEOUT_MS);
+    ]).option({ maxTimeMS: QUERY_TIMEOUT_MS });
 
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const sMap = {};
