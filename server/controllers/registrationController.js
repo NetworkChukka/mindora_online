@@ -1,6 +1,7 @@
 const StudentRegistration = require('../models/StudentRegistration');
 const TeacherRegistration = require('../models/TeacherRegistration');
 const School = require('../models/School');
+const Counter = require('../models/Counter');
 const { generateRegistrationId } = require('../services/idGenerator');
 const { logAudit } = require('../services/auditService');
 const { sanitizePhone } = require('../utils/phoneSanitizer');
@@ -9,14 +10,10 @@ const {
   broadcastStudentRegistered,
   broadcastStudentUpdated,
   broadcastTeacherRegistered,
-  broadcastTeacherUpdated
+  broadcastTeacherUpdated,
+  broadcastDashboardUpdate
 } = require('../sockets/socketManager');
 
-/**
- * Fast Backend calculation rule for Education Level
- * Grade 6–11 = O/L
- * Grade 12–13 = A/L
- */
 function calculateEducationLevel(grade) {
   const g = parseInt(grade);
   if (g >= 6 && g <= 11) {
@@ -63,10 +60,7 @@ async function registerStudent(req, res, next) {
       });
     }
 
-    // Fast backend education level calculation
     const educationLevel = calculateEducationLevel(grade);
-
-    // Fast lean school lookup
     const school = await School.findById(schoolId).select('schoolName').lean();
     if (!school) {
       return res.status(404).json({
@@ -75,7 +69,6 @@ async function registerStudent(req, res, next) {
       });
     }
 
-    // Duplicate detection check
     if (!bypassDuplicateCheck) {
       const normalizedStudent = normalizeName(studentName);
       const recentStudents = await StudentRegistration.find({
@@ -102,7 +95,6 @@ async function registerStudent(req, res, next) {
       }
     }
 
-    // Atomic registration ID generation (MIN-XXXXXX)
     const registrationNumber = await generateRegistrationId('studentSeq', 'MIN', 6);
     const sanitizedPhone = sanitizePhone(phoneNumber);
 
@@ -120,7 +112,6 @@ async function registerStudent(req, res, next) {
       remarks: remarks.trim()
     });
 
-    // Async background audit log (non-blocking)
     logAudit({
       user: req.user,
       action: 'OPERATOR_REGISTERED_STUDENT',
@@ -130,7 +121,6 @@ async function registerStudent(req, res, next) {
       req
     }).catch(() => {});
 
-    // Broadcast real-time event asynchronously
     broadcastStudentRegistered(student);
 
     return res.status(201).json({
@@ -179,7 +169,6 @@ async function registerTeacher(req, res, next) {
       });
     }
 
-    // Duplicate check
     if (!bypassDuplicateCheck) {
       const normalizedTeacher = normalizeName(teacherName);
       const recentTeachers = await TeacherRegistration.find({
@@ -204,7 +193,6 @@ async function registerTeacher(req, res, next) {
       }
     }
 
-    // Generate atomic registration ID TCH-XXXXXX
     const teacherRegistrationNumber = await generateRegistrationId('teacherSeq', 'TCH', 6);
     const sanitizedPhone = sanitizePhone(phoneNumber);
 
@@ -540,6 +528,55 @@ async function deleteTeacher(req, res, next) {
   }
 }
 
+/**
+ * Admin Reset / Clear All Registration Data & Sequences
+ */
+async function resetRegistrations(req, res, next) {
+  try {
+    const { confirmText } = req.body;
+    if (confirmText !== 'RESET') {
+      return res.status(400).json({
+        success: false,
+        message: 'Confirmation text "RESET" is required to purge registration data.'
+      });
+    }
+
+    const [studentDel, teacherDel] = await Promise.all([
+      StudentRegistration.deleteMany({}),
+      TeacherRegistration.deleteMany({}),
+      Counter.deleteMany({})
+    ]);
+
+    logAudit({
+      user: req.user,
+      action: 'ADMIN_PURGED_REGISTRATION_DATA',
+      description: `Purged all visitor registrations (${studentDel.deletedCount} students, ${teacherDel.deletedCount} teachers) and reset sequence IDs to MIN-000001 / TCH-000001`,
+      req
+    }).catch(() => {});
+
+    broadcastDashboardUpdate({
+      totalVisitors: 0,
+      totalStudents: 0,
+      totalTeachers: 0,
+      olStudents: 0,
+      alStudents: 0,
+      todaysRegistrations: 0,
+      lastUpdated: new Date()
+    });
+
+    return res.json({
+      success: true,
+      message: 'All student and teacher registration records have been cleared. Sequence IDs reset to 0.',
+      summary: {
+        studentsPurged: studentDel.deletedCount,
+        teachersPurged: teacherDel.deletedCount
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   registerStudent,
   registerTeacher,
@@ -548,5 +585,6 @@ module.exports = {
   updateStudent,
   updateTeacher,
   deleteStudent,
-  deleteTeacher
+  deleteTeacher,
+  resetRegistrations
 };

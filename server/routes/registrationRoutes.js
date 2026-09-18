@@ -4,6 +4,14 @@ const registrationController = require('../controllers/registrationController');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const { requireRoles } = require('../middleware/rbacMiddleware');
 
+// Purge / Reset all registration data (Admin only)
+router.post(
+  '/reset',
+  authenticateToken,
+  requireRoles('ADMIN'),
+  registrationController.resetRegistrations
+);
+
 // Student endpoints
 router.post(
   '/students',
