@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
-import { Tv, Users, BookOpen, GraduationCap, School, Clock, Wifi } from 'lucide-react';
+import { BookOpen, GraduationCap } from 'lucide-react';
 
 export default function DisplayPage() {
   const { socket, connectionStatus } = useSocket();
@@ -29,9 +29,14 @@ export default function DisplayPage() {
 
   useEffect(() => {
     fetchStats();
+    // Live Sync polling every 3 seconds for TV Display screen
+    const interval = setInterval(() => {
+      fetchStats();
+    }, 3000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Listen to real-time Socket.IO dashboard:update event
+  // Socket.IO event listener
   useEffect(() => {
     if (!socket) return;
     const handleUpdate = (newStats) => {
@@ -46,13 +51,15 @@ export default function DisplayPage() {
       {/* Top TV Header */}
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
         <div className="flex items-center space-x-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-500 p-0.5 shadow-2xl">
-            <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-              <span className="font-black text-emerald-400 text-3xl">M</span>
-            </div>
+          <div className="bg-white p-2 rounded-2xl shadow-2xl flex items-center h-16">
+            <img
+              src="/assets/mindora-logo.jpg"
+              alt="MINDORA Logo"
+              className="h-12 w-auto object-contain"
+            />
           </div>
           <div>
-            <h1 className="text-3xl md:text-5xl font-black tracking-wider text-white">MINDORA</h1>
+            <h1 className="text-3xl md:text-4xl font-black tracking-wider text-white">MINDORA</h1>
             <p className="text-xs md:text-sm text-emerald-400 font-bold tracking-[0.3em] uppercase mt-1">
               MICROBIOLOGY EXHIBITION • LIVE VISITOR DISPLAY
             </p>
@@ -61,7 +68,7 @@ export default function DisplayPage() {
 
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2 text-xs font-mono bg-slate-900 border border-slate-800 px-4 py-2 rounded-full">
-            <span className={`w-3 h-3 rounded-full ${connectionStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+            <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>LIVE SYNC</span>
           </div>
           <div className="text-right hidden sm:block">

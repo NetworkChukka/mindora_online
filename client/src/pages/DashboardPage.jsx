@@ -77,9 +77,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboardData();
+    // Live Sync Polling every 4 seconds for serverless Vercel environment
+    const interval = setInterval(() => {
+      fetchDashboardData();
+    }, 4000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Update real-time stats if Socket.IO pushes updates!
+  // Update real-time stats if Socket.IO or polling pushes updates
   useEffect(() => {
     if (latestStats) {
       setStats((prev) => ({ ...prev, ...latestStats }));
@@ -128,13 +133,13 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">REAL-TIME EXHIBITION DASHBOARD</h1>
-          <p className="text-xs text-slate-500 font-medium mt-1">Live visitor counts, grade statistics, and operator activity</p>
+          <p className="text-xs text-slate-500 font-medium mt-1">Live visitor counts (auto-synced every 4 seconds)</p>
         </div>
         <button
           onClick={fetchDashboardData}
           className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-4 py-2 rounded-xl transition"
         >
-          Refresh Data
+          Refresh Now
         </button>
       </div>
 
