@@ -3,6 +3,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import BottomMobileNav from './BottomMobileNav';
 
 export default function ProtectedLayout({ allowedRoles }) {
   const { user, loading, setupRequired } = useAuth();
@@ -33,10 +34,11 @@ export default function ProtectedLayout({ allowedRoles }) {
       <Navbar />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full overflow-x-hidden">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-20 md:pb-8 max-w-7xl mx-auto w-full overflow-x-hidden">
           <Outlet />
         </main>
       </div>
+      <BottomMobileNav />
     </div>
   );
 }
