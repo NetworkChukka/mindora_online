@@ -1,0 +1,21 @@
+{
+  "short_name": "MINDORA",
+  "name": "MINDORA Microbiology Exhibition Registration",
+  "icons": [
+    {
+      "src": "/assets/mindora-logo.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/assets/mindora-logo.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/register",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "display": "standalone",
+  "orientation": "portrait"
+}
