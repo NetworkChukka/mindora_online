@@ -15,7 +15,7 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
     try {
       setLoading(true);
       const res = await axios.get('/api/schools', {
-        params: { search: query, limit: 30 }
+        params: { search: query, limit: 2000, status: 'ACTIVE' }
       });
       if (res.data.success) {
         setSchools(res.data.data);
@@ -37,7 +37,7 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
     const handleSchoolCreated = (newSchool) => {
       setSchools((prev) => {
         if (prev.some((s) => s._id === newSchool._id)) return prev;
-        return [newSchool, ...prev];
+        return [newSchool, ...prev].sort((a, b) => a.schoolName.localeCompare(b.schoolName));
       });
     };
     socket.on('school:created', handleSchoolCreated);
@@ -47,7 +47,7 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchSchools(searchTerm);
-    }, 250);
+    }, 200);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
@@ -94,9 +94,9 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden max-h-80 flex flex-col animate-in fade-in slide-in-from-top-2 duration-150">
-          {/* Search Input inside Dropdown */}
-          <div className="p-3 border-b border-slate-100 bg-slate-50 sticky top-0">
+        <div className="absolute z-50 mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden max-h-96 flex flex-col animate-in fade-in slide-in-from-top-2 duration-150">
+          {/* Search Input & Count Header */}
+          <div className="p-3 border-b border-slate-100 bg-slate-50 sticky top-0 z-10 space-y-2">
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
               <input
@@ -108,14 +108,18 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
                 autoFocus
               />
             </div>
+            <div className="text-[11px] font-bold text-slate-500 flex items-center justify-between px-1">
+              <span>LIST OF ALL SCHOOLS</span>
+              <span className="text-blue-600 font-extrabold">{schools.length} schools available</span>
+            </div>
           </div>
 
-          {/* School List */}
-          <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
+          {/* School List - Full Scrollable Area */}
+          <div className="overflow-y-auto flex-1 divide-y divide-slate-100 max-h-64">
             {loading ? (
               <div className="p-6 text-center text-slate-500 text-sm flex items-center justify-center space-x-2">
                 <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                <span>Searching schools...</span>
+                <span>Loading complete school list...</span>
               </div>
             ) : schools.length > 0 ? (
               schools.map((s) => (
