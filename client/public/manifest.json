@@ -3,13 +3,13 @@
   "name": "MINDORA Microbiology Exhibition Registration",
   "icons": [
     {
-      "src": "/assets/mindora-logo.png",
+      "src": "/favicon.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "/assets/mindora-logo.png",
-      "type": "image/png",
+      "src": "/assets/mindora-logo.jpg",
+      "type": "image/jpeg",
       "sizes": "512x512"
     }
   ],
