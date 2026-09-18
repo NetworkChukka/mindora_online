@@ -23,17 +23,21 @@ async function connectDB() {
     return cached.conn;
   }
 
+  // Reuse existing active connection if ready
   if (cached.conn && mongoose.connection.readyState === 1) {
     return cached.conn;
   }
 
   if (!cached.promise) {
     const opts = {
-      serverSelectionTimeoutMS: 10000,
+      maxPoolSize: 10, // Serverless pool size limit to prevent Atlas connection exhaustion
+      minPoolSize: 1,
+      serverSelectionTimeoutMS: 5000, // Quick fail if DB is unreachable
       socketTimeoutMS: 45000,
+      family: 4 // Use IPv4 for fast DNS resolution
     };
 
-    console.log('Connecting to cloud MongoDB database...');
+    console.log('Connecting to cloud MongoDB database with serverless connection pooling...');
     cached.promise = mongoose.connect(mongoUri, opts).then((m) => {
       console.log(`MongoDB Connected: ${m.connection.host}`);
       return m;

@@ -58,9 +58,12 @@ const teacherRegistrationSchema = new mongoose.Schema({
   timestamps: true
 });
 
-teacherRegistrationSchema.index({ teacherRegistrationNumber: 1 });
-teacherRegistrationSchema.index({ schoolId: 1 });
-teacherRegistrationSchema.index({ registeredBy: 1 });
-teacherRegistrationSchema.index({ deleted: 1, createdAt: -1 });
+// Explicit database indexes for fast query execution
+teacherRegistrationSchema.index({ teacherRegistrationNumber: 1 }, { unique: true });
+teacherRegistrationSchema.index({ schoolId: 1, deleted: 1 });
+teacherRegistrationSchema.index({ phoneNumber: 1 });
+teacherRegistrationSchema.index({ createdAt: -1 });
+teacherRegistrationSchema.index({ registeredBy: 1, deleted: 1 });
+teacherRegistrationSchema.index({ schoolNameSnapshot: 1, deleted: 1 });
 
 module.exports = mongoose.model('TeacherRegistration', teacherRegistrationSchema);

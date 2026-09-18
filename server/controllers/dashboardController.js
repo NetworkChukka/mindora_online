@@ -3,6 +3,7 @@ const TeacherRegistration = require('../models/TeacherRegistration');
 const School = require('../models/School');
 
 const TIMEZONE = process.env.APP_TZ || 'Asia/Colombo';
+const QUERY_TIMEOUT_MS = 5000; // 5 second max execution timeout for aggregation queries
 
 /**
  * Get Real-Time Overview Statistics
@@ -26,13 +27,13 @@ async function getStats(req, res, next) {
       todayStudents,
       todayTeachers
     ] = await Promise.all([
-      StudentRegistration.countDocuments(baseStudentQuery),
-      TeacherRegistration.countDocuments(baseTeacherQuery),
-      StudentRegistration.countDocuments({ ...baseStudentQuery, educationLevel: 'O/L' }),
-      StudentRegistration.countDocuments({ ...baseStudentQuery, educationLevel: 'A/L' }),
-      School.countDocuments({ status: 'ACTIVE' }),
-      StudentRegistration.countDocuments({ ...baseStudentQuery, createdAt: { $gte: startOfTodayLocal } }),
-      TeacherRegistration.countDocuments({ ...baseTeacherQuery, createdAt: { $gte: startOfTodayLocal } })
+      StudentRegistration.countDocuments(baseStudentQuery).maxTimeMS(QUERY_TIMEOUT_MS),
+      TeacherRegistration.countDocuments(baseTeacherQuery).maxTimeMS(QUERY_TIMEOUT_MS),
+      StudentRegistration.countDocuments({ ...baseStudentQuery, educationLevel: 'O/L' }).maxTimeMS(QUERY_TIMEOUT_MS),
+      StudentRegistration.countDocuments({ ...baseStudentQuery, educationLevel: 'A/L' }).maxTimeMS(QUERY_TIMEOUT_MS),
+      School.countDocuments({ status: 'ACTIVE' }).maxTimeMS(QUERY_TIMEOUT_MS),
+      StudentRegistration.countDocuments({ ...baseStudentQuery, createdAt: { $gte: startOfTodayLocal } }).maxTimeMS(QUERY_TIMEOUT_MS),
+      TeacherRegistration.countDocuments({ ...baseTeacherQuery, createdAt: { $gte: startOfTodayLocal } }).maxTimeMS(QUERY_TIMEOUT_MS)
     ]);
 
     const totalVisitors = totalStudents + totalTeachers;
@@ -67,7 +68,7 @@ async function getGradeStats(req, res, next) {
       { $group: { _id: '$grade', count: { $sum: 1 } } }
     ];
 
-    const results = await StudentRegistration.aggregate(pipeline);
+    const results = await StudentRegistration.aggregate(pipeline).maxTimeMS(QUERY_TIMEOUT_MS);
 
     const gradeMap = {};
     results.forEach(r => { gradeMap[r._id] = r.count; });
@@ -108,7 +109,7 @@ async function getSchoolStats(req, res, next) {
             }
           }
         }
-      ]),
+      ]).maxTimeMS(QUERY_TIMEOUT_MS),
       TeacherRegistration.aggregate([
         { $match: { deleted: false } },
         {
@@ -117,7 +118,7 @@ async function getSchoolStats(req, res, next) {
             totalTeachers: { $sum: 1 }
           }
         }
-      ])
+      ]).maxTimeMS(QUERY_TIMEOUT_MS)
     ]);
 
     const schoolMap = {};
@@ -179,7 +180,7 @@ async function getOperatorStats(req, res, next) {
             students: { $sum: 1 }
           }
         }
-      ]),
+      ]).maxTimeMS(QUERY_TIMEOUT_MS),
       TeacherRegistration.aggregate([
         { $match: { deleted: false } },
         {
@@ -189,7 +190,7 @@ async function getOperatorStats(req, res, next) {
             teachers: { $sum: 1 }
           }
         }
-      ])
+      ]).maxTimeMS(QUERY_TIMEOUT_MS)
     ]);
 
     const opMap = {};
@@ -248,7 +249,7 @@ async function getHourlyStats(req, res, next) {
           count: { $sum: 1 }
         }
       }
-    ]);
+    ]).maxTimeMS(QUERY_TIMEOUT_MS);
 
     const teacherHourly = await TeacherRegistration.aggregate([
       { $match: { deleted: false } },
@@ -258,7 +259,7 @@ async function getHourlyStats(req, res, next) {
           count: { $sum: 1 }
         }
       }
-    ]);
+    ]).maxTimeMS(QUERY_TIMEOUT_MS);
 
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const sMap = {};

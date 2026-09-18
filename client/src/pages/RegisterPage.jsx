@@ -20,7 +20,8 @@ export default function RegisterPage() {
 
   // UI State
   const [loading, setLoading] = useState(false);
-  const [successBanner, setSuccessBanner] = useState(null); // { id: 'MIN-000123', type: 'STUDENT', name: '...' }
+  const [retryNotice, setRetryNotice] = useState(false);
+  const [successBanner, setSuccessBanner] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [initialSchoolSearch, setInitialSchoolSearch] = useState('');
@@ -38,12 +39,31 @@ export default function RegisterPage() {
     }
   }, [activeTab]);
 
-  // Calculated Education Level display rule
   const calculateEducationLevel = (g) => {
     const num = parseInt(g);
     if (num >= 6 && num <= 11) return 'O/L';
     if (num >= 12 && num <= 13) return 'A/L';
     return 'N/A';
+  };
+
+  /**
+   * Network-resilient POST with automatic retry for high-latency / serverless cold starts
+   */
+  const postWithRetry = async (url, payload, retries = 2) => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        if (attempt > 0) setRetryNotice(true);
+        const res = await axios.post(url, payload, { timeout: 12000 });
+        setRetryNotice(false);
+        return res;
+      } catch (err) {
+        if (attempt === retries || (err.response && err.response.status !== 503 && err.code !== 'ECONNABORTED')) {
+          setRetryNotice(false);
+          throw err;
+        }
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
   };
 
   const handleRegisterStudent = async (e, bypass = false) => {
@@ -61,7 +81,7 @@ export default function RegisterPage() {
       setLoading(true);
       setErrorMsg('');
 
-      const res = await axios.post('/api/registrations/students', {
+      const res = await postWithRetry('/api/registrations/students', {
         studentName: studentName.trim(),
         schoolId: selectedSchool._id,
         grade: parseInt(grade),
@@ -96,7 +116,7 @@ export default function RegisterPage() {
       if (err.response?.data?.warning) {
         setDuplicateWarning(err.response.data.existingRegistration);
       } else {
-        setErrorMsg(err.response?.data?.message || 'Failed to register student.');
+        setErrorMsg(err.response?.data?.message || 'Failed to register student. Please check your network connection.');
       }
     } finally {
       setLoading(false);
@@ -118,7 +138,7 @@ export default function RegisterPage() {
       setLoading(true);
       setErrorMsg('');
 
-      const res = await axios.post('/api/registrations/teachers', {
+      const res = await postWithRetry('/api/registrations/teachers', {
         teacherName: teacherName.trim(),
         schoolId: selectedSchool._id,
         phoneNumber: phone.trim(),
@@ -152,7 +172,7 @@ export default function RegisterPage() {
       if (err.response?.data?.warning) {
         setDuplicateWarning(err.response.data.existingRegistration);
       } else {
-        setErrorMsg(err.response?.data?.message || 'Failed to register teacher.');
+        setErrorMsg(err.response?.data?.message || 'Failed to register teacher. Please check your network connection.');
       }
     } finally {
       setLoading(false);
@@ -172,6 +192,14 @@ export default function RegisterPage() {
           Centralized online real-time synchronization across all devices
         </p>
       </div>
+
+      {/* Network Retry Banner */}
+      {retryNotice && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl flex items-center space-x-3 text-sm font-semibold animate-pulse">
+          <Loader2 className="w-5 h-5 animate-spin text-amber-600 flex-shrink-0" />
+          <span>High network latency detected. Automatically retrying registration...</span>
+        </div>
+      )}
 
       {/* Success Notification Banner */}
       {successBanner && (
@@ -316,7 +344,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="btn-primary"
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -364,7 +392,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg rounded-xl shadow-lg transition transform active:scale-[0.98] flex items-center justify-center space-x-2 disabled:opacity-50"
+                className="w-full py-4 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg rounded-xl shadow-lg transition transform active:scale-[0.98] flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -380,7 +408,6 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* Add School Modal */}
       <AddSchoolModal
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
@@ -390,7 +417,6 @@ export default function RegisterPage() {
         }}
       />
 
-      {/* Duplicate Warning Modal */}
       <DuplicateModal
         isOpen={!!duplicateWarning}
         existingRegistration={duplicateWarning}
