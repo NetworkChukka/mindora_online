@@ -4,6 +4,8 @@ const StudentRegistration = require('../models/StudentRegistration');
 const TeacherRegistration = require('../models/TeacherRegistration');
 const School = require('../models/School');
 
+const TIMEZONE = process.env.APP_TZ || 'Asia/Colombo';
+
 /**
  * Generate comprehensive Excel Workbook containing Visitors, Students, Teachers, and Summaries
  */
@@ -28,7 +30,7 @@ async function generateExcelReport(filter = {}) {
       level: s.educationLevel,
       phone: s.phoneNumber || 'N/A',
       by: s.registeredByName,
-      date: new Date(s.createdAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })
+      date: new Date(s.createdAt).toLocaleString('en-LK', { timeZone: TIMEZONE })
     })),
     ...teachers.map(t => ({
       regId: t.teacherRegistrationNumber,
@@ -39,7 +41,7 @@ async function generateExcelReport(filter = {}) {
       level: 'N/A',
       phone: t.phoneNumber || 'N/A',
       by: t.registeredByName,
-      date: new Date(t.createdAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })
+      date: new Date(t.createdAt).toLocaleString('en-LK', { timeZone: TIMEZONE })
     }))
   ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -75,7 +77,7 @@ async function generateExcelReport(filter = {}) {
   sheet2.addRows(students.map(s => ({
     ...s,
     phoneNumber: s.phoneNumber || 'N/A',
-    createdAt: new Date(s.createdAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })
+    createdAt: new Date(s.createdAt).toLocaleString('en-LK', { timeZone: TIMEZONE })
   })));
   sheet2.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' } };
   sheet2.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3A8A' } };
@@ -93,7 +95,7 @@ async function generateExcelReport(filter = {}) {
   sheet3.addRows(teachers.map(t => ({
     ...t,
     phoneNumber: t.phoneNumber || 'N/A',
-    createdAt: new Date(t.createdAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })
+    createdAt: new Date(t.createdAt).toLocaleString('en-LK', { timeZone: TIMEZONE })
   })));
   sheet3.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' } };
   sheet3.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '059669' } };
@@ -138,7 +140,7 @@ async function generateCsvReport(type = 'all', filter = {}) {
       'Education Level': s.educationLevel,
       'Phone': s.phoneNumber || '',
       'Registered By': s.registeredByName,
-      'Created At': new Date(s.createdAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })
+      'Created At': new Date(s.createdAt).toLocaleString('en-LK', { timeZone: TIMEZONE })
     }));
   } else if (type === 'teachers') {
     const teachers = await TeacherRegistration.find(baseFilter).sort({ createdAt: -1 }).lean();
@@ -151,7 +153,7 @@ async function generateCsvReport(type = 'all', filter = {}) {
       'Education Level': 'N/A',
       'Phone': t.phoneNumber || '',
       'Registered By': t.registeredByName,
-      'Created At': new Date(t.createdAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })
+      'Created At': new Date(t.createdAt).toLocaleString('en-LK', { timeZone: TIMEZONE })
     }));
   } else {
     const students = await StudentRegistration.find(baseFilter).sort({ createdAt: -1 }).lean();
@@ -167,7 +169,7 @@ async function generateCsvReport(type = 'all', filter = {}) {
         'Education Level': s.educationLevel,
         'Phone': s.phoneNumber || '',
         'Registered By': s.registeredByName,
-        'Created At': new Date(s.createdAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })
+        'Created At': new Date(s.createdAt).toLocaleString('en-LK', { timeZone: TIMEZONE })
       })),
       ...teachers.map(t => ({
         'Registration ID': t.teacherRegistrationNumber,
@@ -178,7 +180,7 @@ async function generateCsvReport(type = 'all', filter = {}) {
         'Education Level': 'N/A',
         'Phone': t.phoneNumber || '',
         'Registered By': t.registeredByName,
-        'Created At': new Date(t.createdAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })
+        'Created At': new Date(t.createdAt).toLocaleString('en-LK', { timeZone: TIMEZONE })
       }))
     ];
   }
@@ -198,7 +200,6 @@ async function generateCsvReport(type = 'all', filter = {}) {
     csvLines.push(values.join(','));
   }
 
-  // Add UTF-8 BOM marker \uFEFF for proper Sinhala/Unicode rendering in Excel
   return '\uFEFF' + csvLines.join('\n');
 }
 
@@ -220,7 +221,7 @@ function generatePdfReport(res, title = 'MINDORA Exhibition Summary Report', fil
       doc.fontSize(12).font('Helvetica').text('MICROBIOLOGY EXHIBITION REGISTRATION REPORT', 40, 48);
       
       doc.fillColor('#333333').fontSize(14).font('Helvetica-Bold').text(title, 40, 100);
-      doc.fontSize(10).font('Helvetica').text(`Generated on: ${new Date().toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })}`, 40, 120);
+      doc.fontSize(10).font('Helvetica').text(`Generated on: ${new Date().toLocaleString('en-LK', { timeZone: TIMEZONE })}`, 40, 120);
 
       // Data fetch
       const baseFilter = { deleted: false, ...filter };
