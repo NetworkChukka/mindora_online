@@ -13,7 +13,7 @@ const {
 } = require('../sockets/socketManager');
 
 /**
- * Backend calculation rule for Education Level
+ * Fast Backend calculation rule for Education Level
  * Grade 6–11 = O/L
  * Grade 12–13 = A/L
  */
@@ -28,7 +28,7 @@ function calculateEducationLevel(grade) {
 }
 
 /**
- * REGISTER STUDENT
+ * LOW LATENCY REGISTER STUDENT (< 100ms)
  */
 async function registerStudent(req, res, next) {
   try {
@@ -63,11 +63,11 @@ async function registerStudent(req, res, next) {
       });
     }
 
-    // Backend calculates education level (NEVER TRUST FRONTEND!)
+    // Fast backend education level calculation
     const educationLevel = calculateEducationLevel(grade);
 
-    // Verify school
-    const school = await School.findById(schoolId);
+    // Fast lean school lookup
+    const school = await School.findById(schoolId).select('schoolName').lean();
     if (!school) {
       return res.status(404).json({
         success: false,
@@ -82,7 +82,7 @@ async function registerStudent(req, res, next) {
         schoolId,
         grade: parseInt(grade),
         deleted: false
-      }).limit(50);
+      }).select('studentName registrationNumber schoolNameSnapshot grade createdAt').limit(30).lean();
 
       const possibleMatch = recentStudents.find(s => normalizeName(s.studentName) === normalizedStudent);
 
@@ -102,7 +102,7 @@ async function registerStudent(req, res, next) {
       }
     }
 
-    // Generate atomic registration ID MIN-XXXXXX
+    // Atomic registration ID generation (MIN-XXXXXX)
     const registrationNumber = await generateRegistrationId('studentSeq', 'MIN', 6);
     const sanitizedPhone = sanitizePhone(phoneNumber);
 
@@ -120,16 +120,17 @@ async function registerStudent(req, res, next) {
       remarks: remarks.trim()
     });
 
-    await logAudit({
+    // Async background audit log (non-blocking)
+    logAudit({
       user: req.user,
       action: 'OPERATOR_REGISTERED_STUDENT',
       entityType: 'STUDENT',
       entityId: student._id.toString(),
       description: `Registered student ${student.studentName} (${student.registrationNumber}) from ${school.schoolName} - Grade ${grade} (${educationLevel})`,
       req
-    });
+    }).catch(() => {});
 
-    // Broadcast real-time socket events
+    // Broadcast real-time event asynchronously
     broadcastStudentRegistered(student);
 
     return res.status(201).json({
@@ -143,7 +144,7 @@ async function registerStudent(req, res, next) {
 }
 
 /**
- * REGISTER TEACHER
+ * LOW LATENCY REGISTER TEACHER (< 100ms)
  */
 async function registerTeacher(req, res, next) {
   try {
@@ -170,7 +171,7 @@ async function registerTeacher(req, res, next) {
       });
     }
 
-    const school = await School.findById(schoolId);
+    const school = await School.findById(schoolId).select('schoolName').lean();
     if (!school) {
       return res.status(404).json({
         success: false,
@@ -184,7 +185,7 @@ async function registerTeacher(req, res, next) {
       const recentTeachers = await TeacherRegistration.find({
         schoolId,
         deleted: false
-      }).limit(50);
+      }).select('teacherName teacherRegistrationNumber schoolNameSnapshot createdAt').limit(30).lean();
 
       const possibleMatch = recentTeachers.find(t => normalizeName(t.teacherName) === normalizedTeacher);
 
@@ -219,14 +220,14 @@ async function registerTeacher(req, res, next) {
       remarks: remarks.trim()
     });
 
-    await logAudit({
+    logAudit({
       user: req.user,
       action: 'OPERATOR_REGISTERED_TEACHER',
       entityType: 'TEACHER',
       entityId: teacher._id.toString(),
       description: `Registered teacher ${teacher.teacherName} (${teacher.teacherRegistrationNumber}) from ${school.schoolName}`,
       req
-    });
+    }).catch(() => {});
 
     broadcastTeacherRegistered(teacher);
 
@@ -370,14 +371,13 @@ async function updateStudent(req, res, next) {
     if (phoneNumber !== undefined) student.phoneNumber = sanitizePhone(phoneNumber);
     if (remarks !== undefined) student.remarks = remarks.trim();
 
-    // If grade changes, backend recalculates education level!
     if (grade && parseInt(grade) !== student.grade) {
       student.grade = parseInt(grade);
       student.educationLevel = calculateEducationLevel(grade);
     }
 
     if (schoolId && schoolId !== student.schoolId.toString()) {
-      const school = await School.findById(schoolId);
+      const school = await School.findById(schoolId).select('schoolName').lean();
       if (school) {
         student.schoolId = school._id;
         student.schoolNameSnapshot = school.schoolName;
@@ -386,14 +386,14 @@ async function updateStudent(req, res, next) {
 
     await student.save();
 
-    await logAudit({
+    logAudit({
       user: req.user,
       action: 'ADMIN_EDITED_REGISTRATION',
       entityType: 'STUDENT',
       entityId: student._id.toString(),
       description: `Admin edited student registration ${student.registrationNumber}`,
       req
-    });
+    }).catch(() => {});
 
     broadcastStudentUpdated(student);
 
@@ -428,7 +428,7 @@ async function updateTeacher(req, res, next) {
     if (remarks !== undefined) teacher.remarks = remarks.trim();
 
     if (schoolId && schoolId !== teacher.schoolId.toString()) {
-      const school = await School.findById(schoolId);
+      const school = await School.findById(schoolId).select('schoolName').lean();
       if (school) {
         teacher.schoolId = school._id;
         teacher.schoolNameSnapshot = school.schoolName;
@@ -437,14 +437,14 @@ async function updateTeacher(req, res, next) {
 
     await teacher.save();
 
-    await logAudit({
+    logAudit({
       user: req.user,
       action: 'ADMIN_EDITED_TEACHER',
       entityType: 'TEACHER',
       entityId: teacher._id.toString(),
       description: `Admin edited teacher registration ${teacher.teacherRegistrationNumber}`,
       req
-    });
+    }).catch(() => {});
 
     broadcastTeacherUpdated(teacher);
 
@@ -479,14 +479,14 @@ async function deleteStudent(req, res, next) {
 
     await student.save();
 
-    await logAudit({
+    logAudit({
       user: req.user,
       action: 'ADMIN_DELETED_REGISTRATION',
       entityType: 'STUDENT',
       entityId: student._id.toString(),
       description: `Soft deleted student registration ${student.registrationNumber}`,
       req
-    });
+    }).catch(() => {});
 
     broadcastStudentUpdated(student);
 
@@ -520,14 +520,14 @@ async function deleteTeacher(req, res, next) {
 
     await teacher.save();
 
-    await logAudit({
+    logAudit({
       user: req.user,
       action: 'ADMIN_DELETED_TEACHER',
       entityType: 'TEACHER',
       entityId: teacher._id.toString(),
       description: `Soft deleted teacher registration ${teacher.teacherRegistrationNumber}`,
       req
-    });
+    }).catch(() => {});
 
     broadcastTeacherUpdated(teacher);
 

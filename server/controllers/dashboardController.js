@@ -89,18 +89,16 @@ async function getGradeStats(req, res, next) {
 }
 
 /**
- * Get School Statistics (Visitors, Students, Teachers, O/L, A/L per school)
+ * Get School Statistics (Accurate Aggregation by School Name Snapshot)
  */
 async function getSchoolStats(req, res, next) {
   try {
-    const schools = await School.find({ status: 'ACTIVE' }).lean();
-
     const [studentGroup, teacherGroup] = await Promise.all([
       StudentRegistration.aggregate([
         { $match: { deleted: false } },
         {
           $group: {
-            _id: '$schoolId',
+            _id: '$schoolNameSnapshot',
             totalStudents: { $sum: 1 },
             olStudents: {
               $sum: { $cond: [{ $eq: ['$educationLevel', 'O/L'] }, 1, 0] }
@@ -113,36 +111,53 @@ async function getSchoolStats(req, res, next) {
       ]),
       TeacherRegistration.aggregate([
         { $match: { deleted: false } },
-        { $group: { _id: '$schoolId', totalTeachers: { $sum: 1 } } }
+        {
+          $group: {
+            _id: '$schoolNameSnapshot',
+            totalTeachers: { $sum: 1 }
+          }
+        }
       ])
     ]);
 
-    const sMap = {};
-    studentGroup.forEach(g => { sMap[g._id.toString()] = g; });
+    const schoolMap = {};
 
-    const tMap = {};
-    teacherGroup.forEach(g => { tMap[g._id.toString()] = g; });
+    studentGroup.forEach(g => {
+      if (g._id) {
+        schoolMap[g._id] = {
+          schoolName: g._id,
+          totalVisitors: g.totalStudents,
+          totalStudents: g.totalStudents,
+          totalTeachers: 0,
+          olStudents: g.olStudents,
+          alStudents: g.alStudents
+        };
+      }
+    });
 
-    const stats = schools.map(s => {
-      const sData = sMap[s._id.toString()] || { totalStudents: 0, olStudents: 0, alStudents: 0 };
-      const tData = tMap[s._id.toString()] || { totalTeachers: 0 };
-      const visitors = sData.totalStudents + tData.totalTeachers;
+    teacherGroup.forEach(g => {
+      if (g._id) {
+        if (schoolMap[g._id]) {
+          schoolMap[g._id].totalTeachers = g.totalTeachers;
+          schoolMap[g._id].totalVisitors += g.totalTeachers;
+        } else {
+          schoolMap[g._id] = {
+            schoolName: g._id,
+            totalVisitors: g.totalTeachers,
+            totalStudents: 0,
+            totalTeachers: g.totalTeachers,
+            olStudents: 0,
+            alStudents: 0
+          };
+        }
+      }
+    });
 
-      return {
-        schoolId: s._id,
-        schoolName: s.schoolName,
-        city: s.city,
-        totalVisitors: visitors,
-        totalStudents: sData.totalStudents,
-        totalTeachers: tData.totalTeachers,
-        olStudents: sData.olStudents,
-        alStudents: sData.alStudents
-      };
-    }).sort((a, b) => b.totalVisitors - a.totalVisitors);
+    const statsList = Object.values(schoolMap).sort((a, b) => b.totalVisitors - a.totalVisitors);
 
     return res.json({
       success: true,
-      data: stats
+      data: statsList
     });
   } catch (err) {
     next(err);
@@ -245,7 +260,6 @@ async function getHourlyStats(req, res, next) {
       }
     ]);
 
-    // Exhibition hours: 0 (12 AM) to 23 (11 PM)
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const sMap = {};
     studentHourly.forEach(h => { if (h._id !== null) sMap[h._id] = h.count; });
