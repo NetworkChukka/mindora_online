@@ -2,13 +2,24 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import AddSchoolModal from '../components/AddSchoolModal';
-import { School, Search, Plus, Upload, Edit, Power, CheckCircle2 } from 'lucide-react';
+import {
+  School,
+  Search,
+  Plus,
+  Upload,
+  Power,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react';
 
 export default function SchoolsPage() {
   const { isAdmin } = useAuth();
   const [schools, setSchools] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -18,15 +29,17 @@ export default function SchoolsPage() {
   const [importSummary, setImportSummary] = useState(null);
   const [importing, setImporting] = useState(false);
 
-  const fetchSchools = async () => {
+  const fetchSchools = async (currentPage = page, currentLimit = limit, currentSearch = search) => {
     try {
       setLoading(true);
       const res = await axios.get('/api/schools', {
-        params: { search, page, limit: 20, status: 'ALL' }
+        params: { search: currentSearch, page: currentPage, limit: currentLimit, status: 'ALL' }
       });
       if (res.data.success) {
         setSchools(res.data.data);
-        setTotal(res.data.pagination.total);
+        const totalCount = res.data.pagination.total;
+        setTotal(totalCount);
+        setTotalPages(res.data.pagination.pages || Math.ceil(totalCount / currentLimit) || 1);
       }
     } catch (err) {
       console.error('Failed to fetch schools:', err);
@@ -36,20 +49,33 @@ export default function SchoolsPage() {
   };
 
   useEffect(() => {
-    fetchSchools();
-  }, [page]);
+    fetchSchools(page, limit, search);
+  }, [page, limit]);
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearch(val);
+    setPage(1);
+    fetchSchools(1, limit, val);
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
-    fetchSchools();
+    fetchSchools(1, limit, search);
+  };
+
+  const handleLimitChange = (e) => {
+    const newLimit = parseInt(e.target.value);
+    setLimit(newLimit);
+    setPage(1);
   };
 
   const handleToggleStatus = async (school) => {
     try {
       const res = await axios.delete(`/api/schools/${school._id}`);
       if (res.data.success) {
-        fetchSchools();
+        fetchSchools(page, limit, search);
       }
     } catch (err) {
       alert('Failed to update school status.');
@@ -62,7 +88,6 @@ export default function SchoolsPage() {
 
     try {
       setImporting(true);
-      // Parse newline or CSV text
       const lines = importText.split('\n').filter(l => l.trim().length > 0);
       const items = lines.map(line => {
         const parts = line.split(',');
@@ -77,7 +102,7 @@ export default function SchoolsPage() {
       if (res.data.success) {
         setImportSummary(res.data.summary);
         setImportText('');
-        fetchSchools();
+        fetchSchools(page, limit, search);
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to import schools.');
@@ -86,11 +111,46 @@ export default function SchoolsPage() {
     }
   };
 
+  // Generate page numbers for pagination
+  const renderPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    let start = Math.max(1, page - 2);
+    let end = Math.min(totalPages, start + maxVisible - 1);
+
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+
+    for (let i = start; i <= end; i++) {
+      pages.push(
+        <button
+          key={i}
+          onClick={() => setPage(i)}
+          className={`w-8 h-8 rounded-lg text-xs font-bold transition ${
+            page === i
+              ? 'bg-blue-600 text-white shadow'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+    return pages;
+  };
+
   return (
     <div className="space-y-6">
+      {/* Page Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">SHARED SCHOOL DATABASE</h1>
+          <div className="flex items-center space-x-3">
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">SHARED SCHOOL DATABASE</h1>
+            <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full border border-blue-200">
+              {total} Schools Total
+            </span>
+          </div>
           <p className="text-xs text-slate-500 font-medium mt-1">Central database used by both student and teacher registration operators</p>
         </div>
         <div className="flex items-center space-x-2">
@@ -104,18 +164,32 @@ export default function SchoolsPage() {
         </div>
       </div>
 
-      {/* Filter & Search */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3">
+      {/* Filter & Search Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <form onSubmit={handleSearchSubmit} className="flex-1 min-w-[240px] relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search school name or city..."
+            onChange={handleSearchChange}
+            placeholder="Search school name, city, or district..."
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
           />
         </form>
+
+        <div className="flex items-center space-x-2">
+          <span className="text-xs text-slate-500 font-semibold">Rows per page:</span>
+          <select
+            value={limit}
+            onChange={handleLimitChange}
+            className="bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold py-2 px-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+          >
+            <option value={20}>20 rows</option>
+            <option value={50}>50 rows</option>
+            <option value={100}>100 rows</option>
+            <option value={500}>All (500)</option>
+          </select>
+        </div>
       </div>
 
       {/* Admin Bulk Import Panel */}
@@ -163,6 +237,7 @@ export default function SchoolsPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-900 text-white uppercase text-[10px] font-bold tracking-wider">
               <tr>
+                <th className="p-4">#</th>
                 <th className="p-4">School Name</th>
                 <th className="p-4">City</th>
                 <th className="p-4">District</th>
@@ -174,11 +249,16 @@ export default function SchoolsPage() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">Loading schools database...</td>
+                  <td colSpan={isAdmin ? 7 : 6} className="p-8 text-center text-slate-500">
+                    Loading schools database...
+                  </td>
                 </tr>
               ) : schools.length > 0 ? (
-                schools.map((s) => (
+                schools.map((s, idx) => (
                   <tr key={s._id} className="hover:bg-slate-50">
+                    <td className="p-4 text-xs text-slate-400 font-semibold">
+                      {(page - 1) * limit + idx + 1}
+                    </td>
                     <td className="p-4 font-bold text-slate-900">{s.schoolName}</td>
                     <td className="p-4 text-slate-600 font-medium">{s.city || '—'}</td>
                     <td className="p-4 text-slate-600 font-medium">{s.district || '—'}</td>
@@ -207,18 +287,53 @@ export default function SchoolsPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">No school records found.</td>
+                  <td colSpan={isAdmin ? 7 : 6} className="p-8 text-center text-slate-500 font-medium">
+                    No school records found.
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer Bar */}
+        {total > 0 && (
+          <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4">
+            <div className="text-xs text-slate-600 font-medium">
+              Showing <span className="font-bold text-slate-900">{(page - 1) * limit + 1}</span> to{' '}
+              <span className="font-bold text-slate-900">{Math.min(page * limit, total)}</span> of{' '}
+              <span className="font-bold text-slate-900">{total}</span> schools
+            </div>
+
+            <div className="flex items-center space-x-1.5">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-2 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-40 transition"
+                title="Previous Page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {renderPageNumbers()}
+
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-2 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-40 transition"
+                title="Next Page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <AddSchoolModal
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
-        onSchoolCreated={() => fetchSchools()}
+        onSchoolCreated={() => fetchSchools(page, limit, search)}
       />
     </div>
   );
