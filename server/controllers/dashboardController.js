@@ -2,6 +2,8 @@ const StudentRegistration = require('../models/StudentRegistration');
 const TeacherRegistration = require('../models/TeacherRegistration');
 const School = require('../models/School');
 
+const TIMEZONE = process.env.APP_TZ || 'Asia/Colombo';
+
 /**
  * Get Real-Time Overview Statistics
  */
@@ -10,9 +12,10 @@ async function getStats(req, res, next) {
     const baseStudentQuery = { deleted: false };
     const baseTeacherQuery = { deleted: false };
 
-    // Start of today (Asia/Colombo timezone offset approximation: UTC + 5:30)
+    // Calculate start of today in Asia/Colombo local timezone
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const localDateStr = now.toLocaleDateString('en-US', { timeZone: TIMEZONE });
+    const startOfTodayLocal = new Date(`${localDateStr} 00:00:00 GMT+0530`);
 
     const [
       totalStudents,
@@ -28,8 +31,8 @@ async function getStats(req, res, next) {
       StudentRegistration.countDocuments({ ...baseStudentQuery, educationLevel: 'O/L' }),
       StudentRegistration.countDocuments({ ...baseStudentQuery, educationLevel: 'A/L' }),
       School.countDocuments({ status: 'ACTIVE' }),
-      StudentRegistration.countDocuments({ ...baseStudentQuery, createdAt: { $gte: startOfToday } }),
-      TeacherRegistration.countDocuments({ ...baseTeacherQuery, createdAt: { $gte: startOfToday } })
+      StudentRegistration.countDocuments({ ...baseStudentQuery, createdAt: { $gte: startOfTodayLocal } }),
+      TeacherRegistration.countDocuments({ ...baseTeacherQuery, createdAt: { $gte: startOfTodayLocal } })
     ]);
 
     const totalVisitors = totalStudents + totalTeachers;
@@ -218,7 +221,7 @@ async function getOperatorStats(req, res, next) {
 }
 
 /**
- * Get Hourly Registration Timeline
+ * Get Hourly Registration Timeline (Timezone-Aware Asia/Colombo + 12-Hour AM/PM labels)
  */
 async function getHourlyStats(req, res, next) {
   try {
@@ -226,7 +229,7 @@ async function getHourlyStats(req, res, next) {
       { $match: { deleted: false } },
       {
         $group: {
-          _id: { $hour: '$createdAt' },
+          _id: { $hour: { date: '$createdAt', timezone: TIMEZONE } },
           count: { $sum: 1 }
         }
       }
@@ -236,24 +239,32 @@ async function getHourlyStats(req, res, next) {
       { $match: { deleted: false } },
       {
         $group: {
-          _id: { $hour: '$createdAt' },
+          _id: { $hour: { date: '$createdAt', timezone: TIMEZONE } },
           count: { $sum: 1 }
         }
       }
     ]);
 
+    // Exhibition hours: 0 (12 AM) to 23 (11 PM)
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const sMap = {};
-    studentHourly.forEach(h => { sMap[h._id] = h.count; });
+    studentHourly.forEach(h => { if (h._id !== null) sMap[h._id] = h.count; });
     const tMap = {};
-    teacherHourly.forEach(h => { tMap[h._id] = h.count; });
+    teacherHourly.forEach(h => { if (h._id !== null) tMap[h._id] = h.count; });
 
-    const timeline = hours.map(h => ({
-      hour: `${String(h).padStart(2, '0')}:00`,
-      students: sMap[h] || 0,
-      teachers: tMap[h] || 0,
-      total: (sMap[h] || 0) + (tMap[h] || 0)
-    }));
+    const timeline = hours.map(h => {
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const formattedHour = h % 12 === 0 ? 12 : h % 12;
+      const label = `${formattedHour} ${ampm}`;
+
+      return {
+        hour: label,
+        rawHour: h,
+        students: sMap[h] || 0,
+        teachers: tMap[h] || 0,
+        total: (sMap[h] || 0) + (tMap[h] || 0)
+      };
+    });
 
     return res.json({
       success: true,
