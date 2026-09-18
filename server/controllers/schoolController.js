@@ -11,9 +11,10 @@ async function getSchools(req, res, next) {
     const { search = '', status, page = 1, limit = 50 } = req.query;
 
     const query = {};
-    if (status) {
+    // Only filter by status if specific ACTIVE or DISABLED is requested (ignore 'ALL')
+    if (status && status !== 'ALL') {
       query.status = status;
-    } else {
+    } else if (!status) {
       query.status = 'ACTIVE';
     }
 
@@ -86,14 +87,14 @@ async function createSchool(req, res, next) {
         createdByName: req.user.fullName || req.user.username
       });
 
-      await logAudit({
+      logAudit({
         user: req.user,
         action: 'OPERATOR_CREATED_SCHOOL',
         entityType: 'SCHOOL',
         entityId: school._id.toString(),
         description: `Created school "${school.schoolName}" (${school.city})`,
         req
-      });
+      }).catch(() => {});
 
       // Broadcast real-time school:created event to all connected clients
       broadcastSchoolCreated(school);
@@ -148,14 +149,14 @@ async function updateSchool(req, res, next) {
 
     await school.save();
 
-    await logAudit({
+    logAudit({
       user: req.user,
       action: 'ADMIN_EDITED_SCHOOL',
       entityType: 'SCHOOL',
       entityId: school._id.toString(),
       description: `Updated school "${school.schoolName}"`,
       req
-    });
+    }).catch(() => {});
 
     broadcastSchoolUpdated(school);
 
@@ -187,14 +188,14 @@ async function disableSchool(req, res, next) {
     school.status = school.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
     await school.save();
 
-    await logAudit({
+    logAudit({
       user: req.user,
       action: 'ADMIN_TOGGLED_SCHOOL_STATUS',
       entityType: 'SCHOOL',
       entityId: school._id.toString(),
       description: `School "${school.schoolName}" status changed to ${school.status}`,
       req
-    });
+    }).catch(() => {});
 
     broadcastSchoolUpdated(school);
 
@@ -264,13 +265,13 @@ async function importSchools(req, res, next) {
       }
     }
 
-    await logAudit({
+    logAudit({
       user: req.user,
       action: 'ADMIN_IMPORTED_SCHOOLS',
       entityType: 'SCHOOL',
       description: `Bulk imported schools summary: ${imported} imported, ${skipped} skipped (${duplicates} duplicates), ${errors} errors`,
       req
-    });
+    }).catch(() => {});
 
     return res.json({
       success: true,
