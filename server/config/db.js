@@ -9,13 +9,11 @@ if (!cached) {
 async function connectDB() {
   const mongoUri = process.env.MONGODB_URI;
 
-  // Handle missing MONGODB_URI
   if (!mongoUri || mongoUri.trim() === '') {
     if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
       console.error('CRITICAL: MONGODB_URI environment variable is missing on Vercel!');
       throw new Error('MONGODB_URI environment variable is not configured in Vercel settings.');
     }
-    // Development fallback
     if (!cached.conn) {
       const { MongoMemoryServer } = require('mongodb-memory-server');
       const mongoServer = await MongoMemoryServer.create();
@@ -25,15 +23,13 @@ async function connectDB() {
     return cached.conn;
   }
 
-  // Reuse existing active connection
   if (cached.conn && mongoose.connection.readyState === 1) {
     return cached.conn;
   }
 
   if (!cached.promise) {
     const opts = {
-      bufferCommands: false,
-      serverSelectionTimeoutMS: 8000,
+      serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
     };
 
@@ -49,7 +45,7 @@ async function connectDB() {
   } catch (e) {
     cached.promise = null;
     console.error('MongoDB Connection Failure:', e.message);
-    throw new Error(`MongoDB Cloud Connection Failed: ${e.message}. Please check MongoDB Atlas IP Access List (0.0.0.0/0) and credentials.`);
+    throw new Error(`MongoDB Cloud Connection Failed: ${e.message}`);
   }
 
   return cached.conn;
