@@ -3,7 +3,7 @@ const TeacherRegistration = require('../models/TeacherRegistration');
 const School = require('../models/School');
 
 const TIMEZONE = process.env.APP_TZ || 'Asia/Colombo';
-const QUERY_TIMEOUT_MS = 5000; // 5 second max execution timeout for aggregation queries
+const QUERY_TIMEOUT_MS = 5000;
 
 /**
  * Get Real-Time Overview Statistics
@@ -13,7 +13,6 @@ async function getStats(req, res, next) {
     const baseStudentQuery = { deleted: false };
     const baseTeacherQuery = { deleted: false };
 
-    // Calculate start of today in Asia/Colombo local timezone
     const now = new Date();
     const localDateStr = now.toLocaleDateString('en-US', { timeZone: TIMEZONE });
     const startOfTodayLocal = new Date(`${localDateStr} 00:00:00 GMT+0530`);
@@ -71,7 +70,7 @@ async function getGradeStats(req, res, next) {
     const results = await StudentRegistration.aggregate(pipeline).maxTimeMS(QUERY_TIMEOUT_MS);
 
     const gradeMap = {};
-    results.forEach(r => { gradeMap[r._id] = r.count; });
+    results.forEach(r => { if (r._id !== null) gradeMap[r._id] = r.count; });
 
     const distribution = grades.map(g => ({
       grade: `Grade ${g}`,
@@ -90,7 +89,7 @@ async function getGradeStats(req, res, next) {
 }
 
 /**
- * Get School Statistics (Accurate Aggregation by School Name Snapshot)
+ * Get School Statistics
  */
 async function getSchoolStats(req, res, next) {
   try {
@@ -166,7 +165,7 @@ async function getSchoolStats(req, res, next) {
 }
 
 /**
- * Get Operator Registration Statistics
+ * Get Operator Registration Statistics (Grouped cleanly by Operator Name)
  */
 async function getOperatorStats(req, res, next) {
   try {
@@ -175,7 +174,7 @@ async function getOperatorStats(req, res, next) {
         { $match: { deleted: false } },
         {
           $group: {
-            _id: '$registeredBy',
+            _id: '$registeredByName',
             operatorName: { $first: '$registeredByName' },
             students: { $sum: 1 }
           }
@@ -185,7 +184,7 @@ async function getOperatorStats(req, res, next) {
         { $match: { deleted: false } },
         {
           $group: {
-            _id: '$registeredBy',
+            _id: '$registeredByName',
             operatorName: { $first: '$registeredByName' },
             teachers: { $sum: 1 }
           }
@@ -197,7 +196,7 @@ async function getOperatorStats(req, res, next) {
 
     studentOps.forEach(o => {
       if (o._id) {
-        opMap[o._id.toString()] = {
+        opMap[o._id] = {
           operatorId: o._id,
           operatorName: o.operatorName,
           students: o.students,
@@ -208,7 +207,7 @@ async function getOperatorStats(req, res, next) {
 
     teacherOps.forEach(o => {
       if (o._id) {
-        const key = o._id.toString();
+        const key = o._id;
         if (opMap[key]) {
           opMap[key].teachers = o.teachers;
         } else {

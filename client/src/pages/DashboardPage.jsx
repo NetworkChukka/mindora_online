@@ -9,7 +9,8 @@ import {
   School,
   CalendarCheck,
   TrendingUp,
-  Award
+  Award,
+  RefreshCw
 } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -64,10 +65,10 @@ export default function DashboardPage() {
       ]);
 
       if (statsRes.data.success) setStats(statsRes.data.data);
-      if (gradesRes.data.success) setGradeData(gradesRes.data.data);
-      if (schoolsRes.data.success) setSchoolLeaderboard(schoolsRes.data.data.slice(0, 10));
-      if (operatorsRes.data.success) setOperatorLeaderboard(operatorsRes.data.data);
-      if (hourlyRes.data.success) setHourlyTimeline(hourlyRes.data.data);
+      if (gradesRes.data.success) setGradeData(gradesRes.data.data || []);
+      if (schoolsRes.data.success) setSchoolLeaderboard(schoolsRes.data.data || []);
+      if (operatorsRes.data.success) setOperatorLeaderboard(operatorsRes.data.data || []);
+      if (hourlyRes.data.success) setHourlyTimeline(hourlyRes.data.data || []);
     } catch (err) {
       console.error('Failed to load dashboard statistics:', err);
     } finally {
@@ -77,21 +78,18 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboardData();
-    // Live Sync Polling every 4 seconds for serverless Vercel environment
     const interval = setInterval(() => {
       fetchDashboardData();
     }, 4000);
     return () => clearInterval(interval);
   }, []);
 
-  // Update real-time stats if Socket.IO or polling pushes updates
   useEffect(() => {
     if (latestStats) {
       setStats((prev) => ({ ...prev, ...latestStats }));
     }
   }, [latestStats]);
 
-  // Chart configuration for Grade Distribution
   const gradeChartConfig = {
     labels: gradeData.map((g) => g.grade),
     datasets: [
@@ -104,7 +102,6 @@ export default function DashboardPage() {
     ]
   };
 
-  // Chart configuration for Hourly Registrations
   const hourlyChartConfig = {
     labels: hourlyTimeline.map((h) => h.hour),
     datasets: [
@@ -130,16 +127,17 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">REAL-TIME EXHIBITION DASHBOARD</h1>
-          <p className="text-xs text-slate-500 font-medium mt-1">Live visitor counts (auto-synced every 4 seconds)</p>
+          <p className="text-xs text-slate-500 font-medium mt-1">Live visitor counts, grade statistics, and operator activity</p>
         </div>
         <button
           onClick={fetchDashboardData}
-          className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-4 py-2 rounded-xl transition"
+          className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-4 py-2.5 rounded-xl transition flex items-center space-x-1.5"
         >
-          Refresh Now
+          <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
+          <span>Refresh Now</span>
         </button>
       </div>
 
@@ -189,7 +187,7 @@ export default function DashboardPage() {
               <span className="text-emerald-600 font-semibold">● A/L (12-13)</span>
             </div>
           </div>
-          <div className="h-64">
+          <div className="h-64 relative">
             <Bar
               data={gradeChartConfig}
               options={{
@@ -207,7 +205,7 @@ export default function DashboardPage() {
             <CalendarCheck className="w-5 h-5 text-emerald-600" />
             <span>Hourly Registration Rate</span>
           </h3>
-          <div className="h-64">
+          <div className="h-64 relative">
             <Line
               data={hourlyChartConfig}
               options={{
@@ -238,17 +236,25 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {schoolLeaderboard.map((s, idx) => (
-                  <tr key={s.schoolId} className="hover:bg-slate-50">
-                    <td className="p-3 font-semibold text-slate-900">
-                      <span className="text-xs text-slate-400 font-normal mr-2">#{idx + 1}</span>
-                      {s.schoolName}
+                {schoolLeaderboard.length > 0 ? (
+                  schoolLeaderboard.slice(0, 10).map((s, idx) => (
+                    <tr key={s.schoolName || idx} className="hover:bg-slate-50">
+                      <td className="p-3 font-semibold text-slate-900">
+                        <span className="text-xs text-slate-400 font-normal mr-2">#{idx + 1}</span>
+                        {s.schoolName}
+                      </td>
+                      <td className="p-3 text-center font-bold text-blue-700">{s.totalVisitors}</td>
+                      <td className="p-3 text-center text-slate-600">{s.totalStudents}</td>
+                      <td className="p-3 text-center text-emerald-600 font-medium">{s.totalTeachers}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="p-8 text-center text-slate-400 font-medium">
+                      No visitor registrations recorded yet.
                     </td>
-                    <td className="p-3 text-center font-bold text-blue-700">{s.totalVisitors}</td>
-                    <td className="p-3 text-center text-slate-600">{s.totalStudents}</td>
-                    <td className="p-3 text-center text-emerald-600 font-medium">{s.totalTeachers}</td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -271,14 +277,22 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {operatorLeaderboard.map((op, idx) => (
-                  <tr key={op.operatorId || idx} className="hover:bg-slate-50">
-                    <td className="p-3 font-semibold text-slate-900">{op.operatorName}</td>
-                    <td className="p-3 text-center text-slate-600">{op.students}</td>
-                    <td className="p-3 text-center text-emerald-600 font-medium">{op.teachers}</td>
-                    <td className="p-3 text-center font-bold text-purple-700">{op.totalVisitors}</td>
+                {operatorLeaderboard.length > 0 ? (
+                  operatorLeaderboard.map((op, idx) => (
+                    <tr key={op.operatorName || idx} className="hover:bg-slate-50">
+                      <td className="p-3 font-semibold text-slate-900">{op.operatorName}</td>
+                      <td className="p-3 text-center text-slate-600">{op.students}</td>
+                      <td className="p-3 text-center text-emerald-600 font-medium">{op.teachers}</td>
+                      <td className="p-3 text-center font-bold text-purple-700">{op.totalVisitors}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="p-8 text-center text-slate-400 font-medium">
+                      No operator activity recorded yet.
+                    </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
