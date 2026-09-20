@@ -61,7 +61,6 @@ function RollingCounter({ value, duration = 1000 }) {
       const elapsed = timestamp - startTimeRef.current;
       const progress = Math.min(elapsed / duration, 1);
       
-      // Smooth ease-out cubic curve
       const ease = 1 - Math.pow(1 - progress, 3);
       const current = Math.round(startVal + (endVal - startVal) * ease);
 
@@ -287,14 +286,6 @@ export default function DisplayPage() {
           animation: tickerMove 25s linear infinite;
         }
 
-        @keyframes counterGlow {
-          0%, 100% { text-shadow: 0 0 30px rgba(59, 130, 246, 0.4), 0 0 60px rgba(16, 185, 129, 0.2); }
-          50% { text-shadow: 0 0 50px rgba(16, 185, 129, 0.7), 0 0 100px rgba(99, 102, 241, 0.5); }
-        }
-        .animate-counter-glow {
-          animation: counterGlow 4s ease-in-out infinite;
-        }
-
         @keyframes popIn {
           0% { transform: scale(0.8); opacity: 0; }
           100% { transform: scale(1); opacity: 1; }
@@ -360,8 +351,8 @@ export default function DisplayPage() {
             <Zap className="w-4 h-4 text-amber-400 animate-bounce" />
           </div>
 
-          {/* Large Vertical Rolling Counter (Odometer Scroll Animation) */}
-          <div className="text-8xl md:text-[160px] font-black tracking-tight text-white leading-none my-3 animate-counter-glow transform transition duration-500 group-hover:scale-105">
+          {/* Large Clean Vertical Rolling Counter */}
+          <div className="text-8xl md:text-[160px] font-black tracking-tight text-white leading-none my-3 transform transition duration-500 group-hover:scale-105">
             <RollingCounter value={stats.totalVisitors} duration={1200} />
           </div>
 
