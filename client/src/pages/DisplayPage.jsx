@@ -73,12 +73,14 @@ export default function DisplayPage() {
     }, 350);
   };
 
+  // Milestone triggers specifically at 100X intervals (100, 200, 300, 400, 500...)
   const checkMilestone = (current, previous) => {
     if (current <= 0) return;
-    const milestones = [10, 25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1500, 2000, 3000, 5000];
-    const hitMilestone = milestones.find((m) => current >= m && previous < m);
-    if (hitMilestone) {
-      setActiveMilestone(hitMilestone);
+    const currentMilestone = Math.floor(current / 100) * 100;
+    const previousMilestone = Math.floor(previous / 100) * 100;
+
+    if (currentMilestone > 0 && currentMilestone > previousMilestone) {
+      setActiveMilestone(currentMilestone);
       triggerConfetti();
     }
   };
@@ -88,12 +90,13 @@ export default function DisplayPage() {
     triggerConfetti();
   };
 
-  // Calculate Next Milestone and Progress Percentage
+  // Calculate Next 100X Milestone and Progress Percentage towards it
   const getNextMilestoneData = () => {
-    const milestones = [10, 25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 5000];
-    const target = milestones.find((m) => m > stats.totalVisitors) || (stats.totalVisitors + 100);
-    const progress = Math.min(100, Math.round((stats.totalVisitors / target) * 100));
-    return { target, progress };
+    const total = stats.totalVisitors;
+    const nextTarget = Math.max(100, Math.ceil((total + 1) / 100) * 100);
+    const prevTarget = nextTarget - 100;
+    const progress = Math.min(100, Math.max(0, Math.round(((total - prevTarget) / 100) * 100)));
+    return { target: nextTarget, progress };
   };
 
   const { target: nextMilestoneTarget, progress: milestoneProgress } = getNextMilestoneData();
@@ -290,7 +293,7 @@ export default function DisplayPage() {
             <span>Today's Registrations: +{stats.todaysRegistrations}</span>
           </div>
 
-          {/* Next Milestone Progress Bar */}
+          {/* Next 100X Milestone Progress Bar */}
           <div className="mt-8 max-w-xl mx-auto space-y-2">
             <div className="flex items-center justify-between text-xs font-bold text-slate-300 tracking-wider">
               <span className="flex items-center space-x-1.5">
@@ -370,11 +373,11 @@ export default function DisplayPage() {
           <span>Active Schools: <strong className="text-white">{stats.totalSchools}</strong></span>
           {isAdmin && (
             <button
-              onClick={() => triggerTestMilestone(stats.totalVisitors || 100)}
+              onClick={() => triggerTestMilestone(100)}
               className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-1 rounded-full border border-slate-700 transition"
-              title="Test Milestone Celebration Overlay (Admin Only)"
+              title="Test 100 Milestone Celebration Overlay (Admin Only)"
             >
-              🎉 Demo Milestone
+              🎉 Demo 100 Milestone
             </button>
           )}
         </div>
