@@ -333,41 +333,84 @@ export default function DisplayPage() {
       </header>
 
       {/* Main Exhibition Counter Section */}
-      <main className="my-6 space-y-8 relative z-10">
-        {/* Main Hero Card */}
-        <div className="bg-slate-900/60 backdrop-blur-2xl border border-slate-700/60 p-8 md:p-12 rounded-[40px] shadow-2xl text-center relative overflow-hidden group">
-          <div className="text-xs md:text-sm font-black uppercase tracking-[0.4em] text-slate-400 mb-2 flex items-center justify-center space-x-2">
-            <Zap className="w-4 h-4 text-amber-400 animate-bounce" />
-            <span>TOTAL EXHIBITION VISITORS</span>
-            <Zap className="w-4 h-4 text-amber-400 animate-bounce" />
-          </div>
+      <main className="my-6 space-y-6 relative z-10">
+        {/* Top Hero Section: Counter & Facebook QR Side Card */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+          {/* Main Hero Visitor Counter Card */}
+          <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-2xl border border-slate-700/60 p-8 md:p-10 rounded-[40px] shadow-2xl text-center relative overflow-hidden group flex flex-col justify-between">
+            <div>
+              <div className="text-xs md:text-sm font-black uppercase tracking-[0.4em] text-slate-400 mb-2 flex items-center justify-center space-x-2">
+                <Zap className="w-4 h-4 text-amber-400 animate-bounce" />
+                <span>TOTAL EXHIBITION VISITORS</span>
+                <Zap className="w-4 h-4 text-amber-400 animate-bounce" />
+              </div>
 
-          {/* Large Clean Vertical Rolling Counter */}
-          <div className="text-8xl md:text-[160px] font-black tracking-tight text-white leading-none my-3 transform transition duration-500 group-hover:scale-105">
-            <RollingCounter value={stats.totalVisitors} duration={1200} />
-          </div>
+              {/* Large Clean Vertical Rolling Counter */}
+              <div className="text-7xl md:text-9xl lg:text-[140px] font-black tracking-tight text-white leading-none my-2 transform transition duration-500 group-hover:scale-105">
+                <RollingCounter value={stats.totalVisitors} duration={1200} />
+              </div>
 
-          {/* Today's Registrations Pill */}
-          <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/40 text-emerald-300 px-6 py-2.5 rounded-full font-extrabold text-sm md:text-base shadow-lg">
-            <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>Today's Registrations: +<RollingCounter value={stats.todaysRegistrations} duration={800} /></span>
-          </div>
-
-          {/* Next 100X Milestone Progress Bar */}
-          <div className="mt-8 max-w-xl mx-auto space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-300 tracking-wider">
-              <span className="flex items-center space-x-1.5">
-                <Trophy className="w-4 h-4 text-amber-400" />
-                <span>PROGRESS TO NEXT MILESTONE ({nextMilestoneTarget} VISITORS)</span>
-              </span>
-              <span className="text-emerald-400 font-mono font-extrabold">{milestoneProgress}%</span>
+              {/* Today's Registrations Pill */}
+              <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/40 text-emerald-300 px-6 py-2 rounded-full font-extrabold text-sm shadow-lg my-2">
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <span>Today's Registrations: +<RollingCounter value={stats.todaysRegistrations} duration={800} /></span>
+              </div>
             </div>
 
-            <div className="h-3.5 bg-slate-950/80 border border-slate-800 rounded-full overflow-hidden p-0.5 shadow-inner">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 rounded-full transition-all duration-700 ease-out"
-                style={{ width: `${milestoneProgress}%` }}
-              ></div>
+            {/* Next 100X Milestone Progress Bar */}
+            <div className="mt-6 max-w-xl mx-auto w-full space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-300 tracking-wider">
+                <span className="flex items-center space-x-1.5">
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  <span>PROGRESS TO NEXT MILESTONE ({nextMilestoneTarget} VISITORS)</span>
+                </span>
+                <span className="text-emerald-400 font-mono font-extrabold">{milestoneProgress}%</span>
+              </div>
+
+              <div className="h-3.5 bg-slate-950/80 border border-slate-800 rounded-full overflow-hidden p-0.5 shadow-inner">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${milestoneProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Follow Us on Facebook QR Side Card */}
+          <div className="lg:col-span-1 bg-slate-900/80 border border-blue-500/40 rounded-[40px] p-6 flex flex-col items-center justify-between text-center shadow-2xl backdrop-blur-xl relative overflow-hidden group">
+            {/* Header Badge */}
+            <div className="text-[11px] text-blue-400 font-extrabold uppercase tracking-widest flex items-center space-x-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+              <span>OFFICIAL FACEBOOK COMMUNITY</span>
+            </div>
+
+            {/* QR Code Container */}
+            <div className="bg-white p-4 rounded-3xl shadow-2xl border-4 border-blue-500/20 my-4 transform transition duration-500 group-hover:scale-105 flex items-center justify-center">
+              <QRCodeSVG
+                value="https://web.facebook.com/profile.php?id=61593445413258"
+                size={140}
+                level="H"
+                includeMargin={false}
+              />
+            </div>
+
+            {/* Text & Button */}
+            <div className="space-y-2 w-full">
+              <div className="text-xl md:text-2xl font-black text-white tracking-wide">
+                FOLLOW US ON FACEBOOK
+              </div>
+              <div className="text-xs text-slate-300 font-medium px-2">
+                Scan QR code with your mobile camera to join Mindora Exhibition updates, photos & videos
+              </div>
+
+              <a
+                href="https://web.facebook.com/profile.php?id=61593445413258"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center justify-center space-x-2 bg-[#1877F2] hover:bg-[#0866FF] text-white text-xs font-black px-6 py-3 rounded-2xl shadow-xl transition transform hover:scale-105 w-full"
+              >
+                <span>VISIT FACEBOOK</span>
+              </a>
             </div>
           </div>
         </div>
@@ -415,41 +458,6 @@ export default function DisplayPage() {
           </div>
         </div>
       </main>
-
-      {/* Follow Us on Facebook QR Banner Card */}
-      <div className="bg-slate-900/80 border border-blue-500/40 rounded-3xl p-5 flex items-center justify-between shadow-2xl relative z-10 backdrop-blur-xl">
-        <div className="flex items-center space-x-5">
-          <div className="bg-white p-2.5 rounded-2xl shadow-lg border border-slate-200 flex-shrink-0">
-            <QRCodeSVG
-              value="https://web.facebook.com/profile.php?id=61593445413258"
-              size={80}
-              level="H"
-              includeMargin={false}
-            />
-          </div>
-          <div className="space-y-1">
-            <div className="text-[11px] text-blue-400 font-extrabold uppercase tracking-widest flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
-              <span>OFFICIAL FACEBOOK COMMUNITY</span>
-            </div>
-            <div className="text-lg md:text-xl font-black text-white tracking-wide">
-              FOLLOW US ON FACEBOOK
-            </div>
-            <div className="text-xs text-slate-300 font-medium">
-              Scan QR code with your mobile camera to join Mindora Exhibition updates, photos & videos
-            </div>
-          </div>
-        </div>
-
-        <a
-          href="https://web.facebook.com/profile.php?id=61593445413258"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hidden sm:flex items-center space-x-2 bg-[#1877F2] hover:bg-[#0866FF] text-white text-xs font-black px-5 py-3 rounded-2xl shadow-xl transition transform hover:scale-105"
-        >
-          <span>VISIT FACEBOOK</span>
-        </a>
-      </div>
 
       {/* Footer */}
       <footer className="flex flex-wrap items-center justify-between border-t border-slate-800/80 pt-4 text-xs text-slate-500 font-mono relative z-10 mt-3">
