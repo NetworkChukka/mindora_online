@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import confetti from 'canvas-confetti';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
 import { BookOpen, GraduationCap, PartyPopper, Sparkles, Trophy, X } from 'lucide-react';
 
 export default function DisplayPage() {
   const { socket } = useSocket();
+  const { isAdmin } = useAuth();
   const [stats, setStats] = useState({
     totalVisitors: 0,
     totalStudents: 0,
@@ -224,13 +226,15 @@ export default function DisplayPage() {
         <div>MINDORA MICROBIOLOGY EXHIBITION SYSTEM • ONLINE REAL-TIME DISPLAY</div>
         <div className="flex items-center space-x-4">
           <span>Active Schools: <strong className="text-white">{stats.totalSchools}</strong></span>
-          <button
-            onClick={() => triggerTestMilestone(stats.totalVisitors || 100)}
-            className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-1 rounded-full border border-slate-700 transition"
-            title="Test Milestone Celebration Overlay"
-          >
-            🎉 Demo Milestone
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => triggerTestMilestone(stats.totalVisitors || 100)}
+              className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-1 rounded-full border border-slate-700 transition"
+              title="Test Milestone Celebration Overlay (Admin Only)"
+            >
+              🎉 Demo Milestone
+            </button>
+          )}
         </div>
       </footer>
 
