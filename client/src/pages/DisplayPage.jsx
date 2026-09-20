@@ -10,10 +10,45 @@ import {
   Sparkles,
   Trophy,
   X,
-  Zap,
-  School,
-  TrendingUp
+  Zap
 } from 'lucide-react';
+
+/**
+ * Vertical Rolling Odometer Digit Component
+ */
+function RollingDigit({ digit }) {
+  const num = parseInt(digit, 10);
+  if (isNaN(num)) return <span>{digit}</span>;
+
+  return (
+    <span className="inline-block h-[1.05em] overflow-hidden align-middle relative">
+      <span
+        className="flex flex-col transition-transform duration-700 ease-[cubic-bezier(0.12,0.8,0.32,1.2)]"
+        style={{ transform: `translateY(-${num * 10}%)` }}
+      >
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+          <span key={n} className="h-[1.05em] flex items-center justify-center">
+            {n}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Vertical Rolling Counter Component
+ */
+function RollingCounter({ value }) {
+  const str = (value || 0).toString();
+  return (
+    <span className="inline-flex items-center leading-none">
+      {str.split('').map((char, i) => (
+        <RollingDigit key={`${str.length - i}-${char}`} digit={char} />
+      ))}
+    </span>
+  );
+}
 
 export default function DisplayPage() {
   const { socket } = useSocket();
@@ -282,15 +317,15 @@ export default function DisplayPage() {
             <Zap className="w-4 h-4 text-amber-400 animate-bounce" />
           </div>
 
-          {/* Large Breathing Counter */}
+          {/* Large Vertical Rolling Counter (Odometer Scroll Animation) */}
           <div className="text-8xl md:text-[160px] font-black tracking-tight text-white leading-none my-3 animate-counter-glow transform transition duration-500 group-hover:scale-105">
-            {stats.totalVisitors}
+            <RollingCounter value={stats.totalVisitors} />
           </div>
 
           {/* Today's Registrations Pill */}
           <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/40 text-emerald-300 px-6 py-2.5 rounded-full font-extrabold text-sm md:text-base shadow-lg">
             <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>Today's Registrations: +{stats.todaysRegistrations}</span>
+            <span>Today's Registrations: +<RollingCounter value={stats.todaysRegistrations} /></span>
           </div>
 
           {/* Next 100X Milestone Progress Bar */}
@@ -312,14 +347,16 @@ export default function DisplayPage() {
           </div>
         </div>
 
-        {/* Dynamic Metric Cards Grid */}
+        {/* Dynamic Metric Cards Grid with Rolling Counters */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
           <div className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/90 p-6 rounded-3xl text-center space-y-2 hover:border-blue-500/60 hover:shadow-blue-500/10 transition transform hover:-translate-y-1">
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-center space-x-1.5">
               <BookOpen className="w-4 h-4 text-blue-400" />
               <span>Students</span>
             </div>
-            <div className="text-4xl md:text-6xl font-black text-white">{stats.totalStudents}</div>
+            <div className="text-4xl md:text-6xl font-black text-white">
+              <RollingCounter value={stats.totalStudents} />
+            </div>
           </div>
 
           <div className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/90 p-6 rounded-3xl text-center space-y-2 hover:border-emerald-500/60 hover:shadow-emerald-500/10 transition transform hover:-translate-y-1">
@@ -327,7 +364,9 @@ export default function DisplayPage() {
               <GraduationCap className="w-4 h-4 text-emerald-400" />
               <span>Teachers</span>
             </div>
-            <div className="text-4xl md:text-6xl font-black text-emerald-400">{stats.totalTeachers}</div>
+            <div className="text-4xl md:text-6xl font-black text-emerald-400">
+              <RollingCounter value={stats.totalTeachers} />
+            </div>
           </div>
 
           <div className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/90 p-6 rounded-3xl text-center space-y-2 hover:border-blue-400/60 hover:shadow-blue-400/10 transition transform hover:-translate-y-1">
@@ -335,7 +374,9 @@ export default function DisplayPage() {
               <span className="text-blue-400 font-bold">O/L</span>
               <span>(Grades 6–11)</span>
             </div>
-            <div className="text-4xl md:text-6xl font-black text-blue-400">{stats.olStudents}</div>
+            <div className="text-4xl md:text-6xl font-black text-blue-400">
+              <RollingCounter value={stats.olStudents} />
+            </div>
           </div>
 
           <div className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/90 p-6 rounded-3xl text-center space-y-2 hover:border-indigo-400/60 hover:shadow-indigo-400/10 transition transform hover:-translate-y-1">
@@ -343,7 +384,9 @@ export default function DisplayPage() {
               <span className="text-indigo-400 font-bold">A/L</span>
               <span>(Grades 12–13)</span>
             </div>
-            <div className="text-4xl md:text-6xl font-black text-indigo-400">{stats.alStudents}</div>
+            <div className="text-4xl md:text-6xl font-black text-indigo-400">
+              <RollingCounter value={stats.alStudents} />
+            </div>
           </div>
         </div>
       </main>
