@@ -1,52 +1,88 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
-import { Search, Plus, Check, Building2, Loader2 } from 'lucide-react';
+import { Search, Plus, Check, Building2, Loader2, Trophy, Sparkles } from 'lucide-react';
 
 export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, onOpenAddModal }) {
   const { socket } = useSocket();
   const [searchTerm, setSearchTerm] = useState('');
   const [schools, setSchools] = useState([]);
+  const [schoolCounts, setSchoolCounts] = useState({}); // { [schoolName]: count }
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  const fetchSchools = async (query = '') => {
+  // Fetch complete schools list AND top school registration counts
+  const fetchSchoolsAndStats = async (query = '') => {
     try {
       setLoading(true);
-      const res = await axios.get('/api/schools', {
-        params: { search: query, limit: 2000, status: 'ACTIVE' }
-      });
-      if (res.data.success) {
-        setSchools(res.data.data);
+      const [schoolsRes, statsRes] = await Promise.all([
+        axios.get('/api/schools', {
+          params: { search: query, limit: 2000, status: 'ACTIVE' }
+        }),
+        axios.get('/api/dashboard/schools').catch(() => ({ data: { success: false } }))
+      ]);
+
+      if (statsRes.data?.success && Array.isArray(statsRes.data.data)) {
+        const countsMap = {};
+        statsRes.data.data.forEach((s) => {
+          if (s.schoolName) {
+            countsMap[s.schoolName.toLowerCase().trim()] = s.totalVisitors || 0;
+          }
+        });
+        setSchoolCounts(countsMap);
+      }
+
+      if (schoolsRes.data?.success) {
+        setSchools(schoolsRes.data.data);
       }
     } catch (err) {
-      console.error('Failed to search schools:', err);
+      console.error('Failed to search schools or fetch stats:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSchools('');
+    fetchSchoolsAndStats('');
   }, []);
 
-  // Listen to real-time school:created Socket.IO event from other operators!
+  // Listen to real-time school creation & student/teacher registrations
   useEffect(() => {
     if (!socket) return;
+
     const handleSchoolCreated = (newSchool) => {
       setSchools((prev) => {
         if (prev.some((s) => s._id === newSchool._id)) return prev;
-        return [newSchool, ...prev].sort((a, b) => a.schoolName.localeCompare(b.schoolName));
+        return [newSchool, ...prev];
       });
     };
+
+    const handleRegistration = (data) => {
+      const schoolName = data?.schoolNameSnapshot || data?.schoolName;
+      if (schoolName) {
+        const key = schoolName.toLowerCase().trim();
+        setSchoolCounts((prev) => ({
+          ...prev,
+          [key]: (prev[key] || 0) + 1
+        }));
+      }
+    };
+
     socket.on('school:created', handleSchoolCreated);
-    return () => socket.off('school:created', handleSchoolCreated);
+    socket.on('student:created', handleRegistration);
+    socket.on('teacher:created', handleRegistration);
+
+    return () => {
+      socket.off('school:created', handleSchoolCreated);
+      socket.off('student:created', handleRegistration);
+      socket.off('teacher:created', handleRegistration);
+    };
   }, [socket]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchSchools(searchTerm);
+      fetchSchoolsAndStats(searchTerm);
     }, 200);
     return () => clearTimeout(timer);
   }, [searchTerm]);
@@ -62,13 +98,65 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  return (
-    <div className="relative w-full" ref={dropdownRef}>
-      <label className="block text-sm font-semibold text-slate-700 mb-1">
-        School <span className="text-rose-500">*</span>
-      </label>
+  // Compute school objects with visitor counts
+  const schoolsWithCounts = schools.map((s) => {
+    const key = (s.schoolName || '').toLowerCase().trim();
+    const count = schoolCounts[key] || 0;
+    return { ...s, visitorCount: count };
+  });
 
-      {/* Selector Box */}
+  // Separate Top Registered Schools (visitorCount > 0, sorted DESC) vs Other Schools (A-Z)
+  const topRegisteredSchools = schoolsWithCounts
+    .filter((s) => s.visitorCount > 0)
+    .sort((a, b) => b.visitorCount - a.visitorCount);
+
+  const otherSchools = schoolsWithCounts
+    .filter((s) => s.visitorCount === 0)
+    .sort((a, b) => a.schoolName.localeCompare(b.schoolName));
+
+  return (
+    <div className="relative w-full space-y-2" ref={dropdownRef}>
+      <div className="flex items-center justify-between">
+        <label className="block text-sm font-semibold text-slate-700">
+          School <span className="text-rose-500">*</span>
+        </label>
+
+        {topRegisteredSchools.length > 0 && (
+          <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center space-x-1">
+            <Trophy className="w-3 h-3 text-amber-500" />
+            <span>Top Active Schools First</span>
+          </span>
+        )}
+      </div>
+
+      {/* Quick Select Chips Bar for Top Registered Schools */}
+      {topRegisteredSchools.length > 0 && (
+        <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-200">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex-shrink-0 flex items-center space-x-1">
+            <Sparkles className="w-3 h-3 text-amber-500" />
+            <span>TOP:</span>
+          </span>
+          {topRegisteredSchools.slice(0, 5).map((s) => (
+            <button
+              key={s._id}
+              type="button"
+              onClick={() => onSelectSchool(s)}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center space-x-1.5 flex-shrink-0 border shadow-sm ${
+                selectedSchool?._id === s._id
+                  ? 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-300'
+                  : 'bg-gradient-to-r from-amber-50 to-orange-50 text-slate-800 border-amber-200 hover:border-amber-400 hover:bg-amber-100'
+              }`}
+            >
+              <span className="truncate max-w-[140px]">{s.schoolName}</span>
+              <span className="bg-amber-500 text-slate-950 px-1.5 py-0.2 rounded-full text-[10px] font-black">
+                {s.visitorCount}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Main Selector Box */}
       <div
         onClick={() => setIsOpen(!isOpen)}
         className="w-full min-h-[52px] px-4 py-2 bg-white border border-slate-300 rounded-xl flex items-center justify-between cursor-pointer hover:border-blue-500 focus:outline-none shadow-sm transition"
@@ -77,7 +165,14 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
           <div className="flex items-center space-x-3 overflow-hidden">
             <Building2 className="w-5 h-5 text-blue-600 flex-shrink-0" />
             <div className="truncate">
-              <div className="font-semibold text-slate-900 truncate">{selectedSchool.schoolName}</div>
+              <div className="font-semibold text-slate-900 truncate flex items-center space-x-2">
+                <span>{selectedSchool.schoolName}</span>
+                {schoolCounts[selectedSchool.schoolName?.toLowerCase().trim()] > 0 && (
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-300">
+                    {schoolCounts[selectedSchool.schoolName?.toLowerCase().trim()]} registered
+                  </span>
+                )}
+              </div>
               {selectedSchool.city && (
                 <div className="text-xs text-slate-500">{selectedSchool.city}</div>
               )}
@@ -109,7 +204,7 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
               />
             </div>
             <div className="text-[11px] font-bold text-slate-500 flex items-center justify-between px-1">
-              <span>LIST OF ALL SCHOOLS</span>
+              <span>SCHOOL SELECTION LIST</span>
               <span className="text-blue-600 font-extrabold">{schools.length} schools available</span>
             </div>
           </div>
@@ -122,26 +217,77 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
                 <span>Loading complete school list...</span>
               </div>
             ) : schools.length > 0 ? (
-              schools.map((s) => (
-                <div
-                  key={s._id}
-                  onClick={() => {
-                    onSelectSchool(s);
-                    setIsOpen(false);
-                  }}
-                  className={`p-3.5 hover:bg-blue-50 cursor-pointer transition flex items-center justify-between ${
-                    selectedSchool?._id === s._id ? 'bg-blue-50/80 font-semibold' : ''
-                  }`}
-                >
-                  <div>
-                    <div className="text-sm text-slate-900 font-medium">{s.schoolName}</div>
-                    {s.city && <div className="text-xs text-slate-500">{s.city} {s.district ? `(${s.district})` : ''}</div>}
+              <>
+                {/* Section 1: TOP REGISTERED SCHOOLS (If search is empty or matches) */}
+                {topRegisteredSchools.length > 0 && !searchTerm && (
+                  <div className="bg-amber-50/60 p-2 text-[11px] font-black text-amber-900 uppercase tracking-wider flex items-center space-x-1.5 border-b border-amber-200/60 sticky top-0">
+                    <Trophy className="w-3.5 h-3.5 text-amber-600" />
+                    <span>TOP REGISTERED SCHOOLS (MOST ACTIVE FIRST)</span>
                   </div>
-                  {selectedSchool?._id === s._id && (
-                    <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                  )}
-                </div>
-              ))
+                )}
+
+                {topRegisteredSchools.map((s) => (
+                  <div
+                    key={s._id}
+                    onClick={() => {
+                      onSelectSchool(s);
+                      setIsOpen(false);
+                    }}
+                    className={`p-3.5 hover:bg-blue-50 cursor-pointer transition flex items-center justify-between ${
+                      selectedSchool?._id === s._id ? 'bg-blue-50/90 font-semibold' : ''
+                    }`}
+                  >
+                    <div>
+                      <div className="text-sm text-slate-900 font-bold flex items-center space-x-2">
+                        <span>{s.schoolName}</span>
+                        <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-sm">
+                          {s.visitorCount} registered
+                        </span>
+                      </div>
+                      {s.city && (
+                        <div className="text-xs text-slate-500">
+                          {s.city} {s.district ? `(${s.district})` : ''}
+                        </div>
+                      )}
+                    </div>
+                    {selectedSchool?._id === s._id && (
+                      <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    )}
+                  </div>
+                ))}
+
+                {/* Section 2: OTHER SCHOOLS (A-Z) */}
+                {otherSchools.length > 0 && !searchTerm && (
+                  <div className="bg-slate-100 p-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-y border-slate-200">
+                    ALL OTHER SCHOOLS (ALPHABETICAL)
+                  </div>
+                )}
+
+                {otherSchools.map((s) => (
+                  <div
+                    key={s._id}
+                    onClick={() => {
+                      onSelectSchool(s);
+                      setIsOpen(false);
+                    }}
+                    className={`p-3.5 hover:bg-blue-50 cursor-pointer transition flex items-center justify-between ${
+                      selectedSchool?._id === s._id ? 'bg-blue-50/80 font-semibold' : ''
+                    }`}
+                  >
+                    <div>
+                      <div className="text-sm text-slate-900 font-medium">{s.schoolName}</div>
+                      {s.city && (
+                        <div className="text-xs text-slate-500">
+                          {s.city} {s.district ? `(${s.district})` : ''}
+                        </div>
+                      )}
+                    </div>
+                    {selectedSchool?._id === s._id && (
+                      <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    )}
+                  </div>
+                ))}
+              </>
             ) : (
               <div className="p-6 text-center space-y-3">
                 <div className="text-slate-500 text-sm font-medium">School not found in central database.</div>
