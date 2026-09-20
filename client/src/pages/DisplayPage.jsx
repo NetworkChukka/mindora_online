@@ -21,13 +21,13 @@ function RollingDigit({ digit }) {
   if (isNaN(num)) return <span>{digit}</span>;
 
   return (
-    <span className="inline-block h-[1.05em] overflow-hidden align-middle relative">
+    <span className="inline-block h-[1.08em] overflow-hidden align-middle relative">
       <span
-        className="flex flex-col transition-transform duration-700 ease-[cubic-bezier(0.12,0.8,0.32,1.2)]"
+        className="flex flex-col transition-transform duration-300 ease-out"
         style={{ transform: `translateY(-${num * 10}%)` }}
       >
         {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-          <span key={n} className="h-[1.05em] flex items-center justify-center">
+          <span key={n} className="h-[1.08em] flex items-center justify-center">
             {n}
           </span>
         ))}
@@ -37,14 +37,57 @@ function RollingDigit({ digit }) {
 }
 
 /**
- * Vertical Rolling Counter Component
+ * Smooth Animated Rolling Counter Component
  */
-function RollingCounter({ value }) {
-  const str = (value || 0).toString();
+function RollingCounter({ value, duration = 1000 }) {
+  const [animatedValue, setAnimatedValue] = useState(0);
+  const animRef = useRef(null);
+  const startTimeRef = useRef(null);
+  const startValRef = useRef(0);
+
+  useEffect(() => {
+    const startVal = startValRef.current;
+    const endVal = typeof value === 'number' ? value : parseInt(value, 10) || 0;
+    
+    if (startVal === endVal) {
+      setAnimatedValue(endVal);
+      return;
+    }
+
+    startTimeRef.current = null;
+
+    const animate = (timestamp) => {
+      if (!startTimeRef.current) startTimeRef.current = timestamp;
+      const elapsed = timestamp - startTimeRef.current;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Smooth ease-out cubic curve
+      const ease = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(startVal + (endVal - startVal) * ease);
+
+      setAnimatedValue(current);
+
+      if (progress < 1) {
+        animRef.current = requestAnimationFrame(animate);
+      } else {
+        setAnimatedValue(endVal);
+        startValRef.current = endVal;
+        startTimeRef.current = null;
+      }
+    };
+
+    animRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, [value, duration]);
+
+  const str = (animatedValue || 0).toString();
+
   return (
-    <span className="inline-flex items-center leading-none">
+    <span className="inline-flex items-center leading-none font-mono">
       {str.split('').map((char, i) => (
-        <RollingDigit key={`${str.length - i}-${char}`} digit={char} />
+        <RollingDigit key={str.length - 1 - i} digit={char} />
       ))}
     </span>
   );
@@ -319,13 +362,13 @@ export default function DisplayPage() {
 
           {/* Large Vertical Rolling Counter (Odometer Scroll Animation) */}
           <div className="text-8xl md:text-[160px] font-black tracking-tight text-white leading-none my-3 animate-counter-glow transform transition duration-500 group-hover:scale-105">
-            <RollingCounter value={stats.totalVisitors} />
+            <RollingCounter value={stats.totalVisitors} duration={1200} />
           </div>
 
           {/* Today's Registrations Pill */}
           <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/40 text-emerald-300 px-6 py-2.5 rounded-full font-extrabold text-sm md:text-base shadow-lg">
             <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>Today's Registrations: +<RollingCounter value={stats.todaysRegistrations} /></span>
+            <span>Today's Registrations: +<RollingCounter value={stats.todaysRegistrations} duration={800} /></span>
           </div>
 
           {/* Next 100X Milestone Progress Bar */}
@@ -355,7 +398,7 @@ export default function DisplayPage() {
               <span>Students</span>
             </div>
             <div className="text-4xl md:text-6xl font-black text-white">
-              <RollingCounter value={stats.totalStudents} />
+              <RollingCounter value={stats.totalStudents} duration={1000} />
             </div>
           </div>
 
@@ -365,7 +408,7 @@ export default function DisplayPage() {
               <span>Teachers</span>
             </div>
             <div className="text-4xl md:text-6xl font-black text-emerald-400">
-              <RollingCounter value={stats.totalTeachers} />
+              <RollingCounter value={stats.totalTeachers} duration={1000} />
             </div>
           </div>
 
@@ -375,7 +418,7 @@ export default function DisplayPage() {
               <span>(Grades 6–11)</span>
             </div>
             <div className="text-4xl md:text-6xl font-black text-blue-400">
-              <RollingCounter value={stats.olStudents} />
+              <RollingCounter value={stats.olStudents} duration={1000} />
             </div>
           </div>
 
@@ -385,7 +428,7 @@ export default function DisplayPage() {
               <span>(Grades 12–13)</span>
             </div>
             <div className="text-4xl md:text-6xl font-black text-indigo-400">
-              <RollingCounter value={stats.alStudents} />
+              <RollingCounter value={stats.alStudents} duration={1000} />
             </div>
           </div>
         </div>
