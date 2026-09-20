@@ -27,6 +27,8 @@ export default function RegisterPage() {
   const [initialSchoolSearch, setInitialSchoolSearch] = useState('');
   const [duplicateWarning, setDuplicateWarning] = useState(null);
 
+  const [lastRegisteredSchool, setLastRegisteredSchool] = useState(null);
+
   const studentNameInputRef = useRef(null);
   const teacherNameInputRef = useRef(null);
 
@@ -100,6 +102,9 @@ export default function RegisterPage() {
           level: student.educationLevel
         });
 
+        // Update last registered school to bump top schools list instantly
+        setLastRegisteredSchool(student);
+
         // Reset form & auto-focus
         setStudentName('');
         setPhone('');
@@ -155,6 +160,9 @@ export default function RegisterPage() {
           school: teacher.schoolNameSnapshot,
           level: 'N/A'
         });
+
+        // Update last registered school to bump top schools list instantly
+        setLastRegisteredSchool(teacher);
 
         // Reset form & auto-focus
         setTeacherName('');
@@ -277,6 +285,7 @@ export default function RegisterPage() {
               setInitialSchoolSearch(searchQuery);
               setAddModalOpen(true);
             }}
+            lastRegisteredSchool={lastRegisteredSchool}
           />
 
           {/* STUDENT FORM */}

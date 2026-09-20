@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
 import { Search, Plus, Check, Building2, Loader2, Trophy, Sparkles } from 'lucide-react';
 
-export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, onOpenAddModal }) {
+export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, onOpenAddModal, lastRegisteredSchool }) {
   const { socket } = useSocket();
   const [searchTerm, setSearchTerm] = useState('');
   const [schools, setSchools] = useState([]);
@@ -47,7 +47,20 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
     fetchSchoolsAndStats('');
   }, []);
 
-  // Listen to real-time school creation & student/teacher registrations
+  // Instantly bump registration count when local registration completes in parent form
+  useEffect(() => {
+    if (!lastRegisteredSchool) return;
+    const name = lastRegisteredSchool.schoolName || lastRegisteredSchool.schoolNameSnapshot;
+    if (name) {
+      const key = name.toLowerCase().trim();
+      setSchoolCounts((prev) => ({
+        ...prev,
+        [key]: (prev[key] || 0) + 1
+      }));
+    }
+  }, [lastRegisteredSchool]);
+
+  // Listen to real-time school creation & student/teacher registrations over Socket.IO
   useEffect(() => {
     if (!socket) return;
 
@@ -59,7 +72,11 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
     };
 
     const handleRegistration = (data) => {
-      const schoolName = data?.schoolNameSnapshot || data?.schoolName;
+      let schoolName = data?.schoolNameSnapshot || data?.schoolName;
+      if (!schoolName && data?.schoolId) {
+        const matched = schools.find((s) => s._id === data.schoolId);
+        if (matched) schoolName = matched.schoolName;
+      }
       if (schoolName) {
         const key = schoolName.toLowerCase().trim();
         setSchoolCounts((prev) => ({
@@ -70,15 +87,19 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
     };
 
     socket.on('school:created', handleSchoolCreated);
+    socket.on('student:registered', handleRegistration);
     socket.on('student:created', handleRegistration);
+    socket.on('teacher:registered', handleRegistration);
     socket.on('teacher:created', handleRegistration);
 
     return () => {
       socket.off('school:created', handleSchoolCreated);
+      socket.off('student:registered', handleRegistration);
       socket.off('student:created', handleRegistration);
+      socket.off('teacher:registered', handleRegistration);
       socket.off('teacher:created', handleRegistration);
     };
-  }, [socket]);
+  }, [socket, schools]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

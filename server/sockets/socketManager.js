@@ -57,9 +57,8 @@ function broadcastSchoolUpdated(school) {
 
 function broadcastStudentRegistered(student, dashboardStats) {
   if (!ioInstance) return;
-  // Broadcast full student object to operators/admins
-  ioInstance.to('authenticated').emit('student:registered', student);
-  // Broadcast aggregate dashboard stats update to all clients (including public TV display)
+  ioInstance.emit('student:registered', student);
+  ioInstance.emit('student:created', student);
   if (dashboardStats) {
     ioInstance.emit('dashboard:update', dashboardStats);
   }
@@ -67,7 +66,7 @@ function broadcastStudentRegistered(student, dashboardStats) {
 
 function broadcastStudentUpdated(student, dashboardStats) {
   if (!ioInstance) return;
-  ioInstance.to('authenticated').emit('student:updated', student);
+  ioInstance.emit('student:updated', student);
   if (dashboardStats) {
     ioInstance.emit('dashboard:update', dashboardStats);
   }
@@ -75,7 +74,8 @@ function broadcastStudentUpdated(student, dashboardStats) {
 
 function broadcastTeacherRegistered(teacher, dashboardStats) {
   if (!ioInstance) return;
-  ioInstance.to('authenticated').emit('teacher:registered', teacher);
+  ioInstance.emit('teacher:registered', teacher);
+  ioInstance.emit('teacher:created', teacher);
   if (dashboardStats) {
     ioInstance.emit('dashboard:update', dashboardStats);
   }
@@ -83,7 +83,7 @@ function broadcastTeacherRegistered(teacher, dashboardStats) {
 
 function broadcastTeacherUpdated(teacher, dashboardStats) {
   if (!ioInstance) return;
-  ioInstance.to('authenticated').emit('teacher:updated', teacher);
+  ioInstance.emit('teacher:updated', teacher);
   if (dashboardStats) {
     ioInstance.emit('dashboard:update', dashboardStats);
   }
