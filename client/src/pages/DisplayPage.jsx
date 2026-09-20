@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import confetti from 'canvas-confetti';
+import { QRCodeSVG } from 'qrcode.react';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -276,16 +277,6 @@ export default function DisplayPage() {
           animation: floatOrb2 15s ease-in-out infinite;
         }
 
-        @keyframes tickerMove {
-          0% { transform: translateX(100%); }
-          100% { transform: translateX(-100%); }
-        }
-        .animate-ticker {
-          display: inline-block;
-          white-space: nowrap;
-          animation: tickerMove 25s linear infinite;
-        }
-
         @keyframes popIn {
           0% { transform: scale(0.8); opacity: 0; }
           100% { transform: scale(1); opacity: 1; }
@@ -425,22 +416,39 @@ export default function DisplayPage() {
         </div>
       </main>
 
-      {/* Live Activity Ticker Tape Bar */}
-      <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-2.5 relative z-10 overflow-hidden shadow-lg flex items-center">
-        <div className="bg-emerald-500 text-slate-950 font-black text-[11px] px-3 py-1 rounded-xl flex items-center space-x-1 flex-shrink-0 z-10 mr-3 uppercase tracking-wider shadow">
-          <Zap className="w-3.5 h-3.5 fill-current" />
-          <span>LIVE ACTIVITY</span>
-        </div>
-
-        <div className="overflow-hidden flex-1 font-mono text-xs text-slate-300">
-          <div className="animate-ticker">
-            <span className="mx-6 text-white font-bold">WELCOME TO MINDORA MICROBIOLOGY EXHIBITION</span>
-            <span className="mx-6 text-emerald-400 font-semibold">• Active Participating Schools: {stats.totalSchools}</span>
-            <span className="mx-6 text-blue-400 font-semibold">• Total Visitors: {stats.totalVisitors}</span>
-            <span className="mx-6 text-amber-400 font-semibold">• Today's Registrations: +{stats.todaysRegistrations}</span>
-            <span className="mx-6 text-purple-400 font-semibold">• Real-Time Registration System Active</span>
+      {/* Follow Us on Facebook QR Banner Card */}
+      <div className="bg-slate-900/80 border border-blue-500/40 rounded-3xl p-5 flex items-center justify-between shadow-2xl relative z-10 backdrop-blur-xl">
+        <div className="flex items-center space-x-5">
+          <div className="bg-white p-2.5 rounded-2xl shadow-lg border border-slate-200 flex-shrink-0">
+            <QRCodeSVG
+              value="https://web.facebook.com/profile.php?id=61593445413258"
+              size={80}
+              level="H"
+              includeMargin={false}
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="text-[11px] text-blue-400 font-extrabold uppercase tracking-widest flex items-center space-x-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+              <span>OFFICIAL FACEBOOK COMMUNITY</span>
+            </div>
+            <div className="text-lg md:text-xl font-black text-white tracking-wide">
+              FOLLOW US ON FACEBOOK
+            </div>
+            <div className="text-xs text-slate-300 font-medium">
+              Scan QR code with your mobile camera to join Mindora Exhibition updates, photos & videos
+            </div>
           </div>
         </div>
+
+        <a
+          href="https://web.facebook.com/profile.php?id=61593445413258"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hidden sm:flex items-center space-x-2 bg-[#1877F2] hover:bg-[#0866FF] text-white text-xs font-black px-5 py-3 rounded-2xl shadow-xl transition transform hover:scale-105"
+        >
+          <span>VISIT FACEBOOK</span>
+        </a>
       </div>
 
       {/* Footer */}
@@ -462,7 +470,7 @@ export default function DisplayPage() {
 
       {/* Live Registration Incoming Toast */}
       {recentNotification && (
-        <div className="fixed bottom-16 right-6 z-40 bg-gradient-to-r from-slate-900 to-indigo-950 border-2 border-emerald-500/80 text-white p-4 rounded-2xl shadow-2xl flex items-center space-x-4 max-w-md animate-pop-in">
+        <div className="fixed bottom-24 right-6 z-40 bg-gradient-to-r from-slate-900 to-indigo-950 border-2 border-emerald-500/80 text-white p-4 rounded-2xl shadow-2xl flex items-center space-x-4 max-w-md animate-pop-in">
           <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl">
             <Sparkles className="w-6 h-6 animate-spin" />
           </div>
