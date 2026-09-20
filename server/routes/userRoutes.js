@@ -9,6 +9,7 @@ router.use(authenticateToken, requireRoles('ADMIN'));
 router.get('/', userController.getUsers);
 router.post('/', userController.createUser);
 router.put('/:id', userController.updateUser);
+router.delete('/:id/permanent', userController.deleteUserPermanently);
 router.delete('/:id', userController.disableUser);
 
 module.exports = router;

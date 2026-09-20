@@ -18,7 +18,7 @@ async function getUsers(req, res, next) {
 }
 
 /**
- * Create user (Admin creates Operator or Viewer)
+ * Create user (Admin creates Operator, Admin, or Viewer)
  */
 async function createUser(req, res, next) {
   try {
@@ -56,7 +56,7 @@ async function createUser(req, res, next) {
       entityId: user._id.toString(),
       description: `Created user ${user.username} with role ${user.role}`,
       req
-    });
+    }).catch(() => {});
 
     return res.status(201).json({
       success: true,
@@ -69,12 +69,12 @@ async function createUser(req, res, next) {
 }
 
 /**
- * Update user profile or status (Admin)
+ * Update user profile, password, role or status (Admin)
  */
 async function updateUser(req, res, next) {
   try {
     const { id } = req.params;
-    const { fullName, role, status, newPassword } = req.body;
+    const { fullName, username, role, status, newPassword } = req.body;
 
     const user = await User.findById(id);
     if (!user) {
@@ -84,7 +84,20 @@ async function updateUser(req, res, next) {
       });
     }
 
-    if (fullName) user.fullName = fullName.trim();
+    if (fullName && fullName.trim()) user.fullName = fullName.trim();
+    
+    if (username && username.trim()) {
+      const lowerUser = username.toLowerCase().trim();
+      const existing = await User.findOne({ username: lowerUser, _id: { $ne: id } });
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username is already taken by another user account.'
+        });
+      }
+      user.username = lowerUser;
+    }
+
     if (role) user.role = role;
     if (status) user.status = status;
 
@@ -101,7 +114,7 @@ async function updateUser(req, res, next) {
       entityId: user._id.toString(),
       description: `Updated user profile for ${user.username}`,
       req
-    });
+    }).catch(() => {});
 
     return res.json({
       success: true,
@@ -114,7 +127,7 @@ async function updateUser(req, res, next) {
 }
 
 /**
- * Disable or Delete User (Admin)
+ * Soft Toggle Active/Disabled Status (Admin)
  */
 async function disableUser(req, res, next) {
   try {
@@ -145,7 +158,7 @@ async function disableUser(req, res, next) {
       entityId: user._id.toString(),
       description: `User ${user.username} status set to ${user.status}`,
       req
-    });
+    }).catch(() => {});
 
     return res.json({
       success: true,
@@ -157,9 +170,50 @@ async function disableUser(req, res, next) {
   }
 }
 
+/**
+ * Permanently Delete User Account (Admin)
+ */
+async function deleteUserPermanently(req, res, next) {
+  try {
+    const { id } = req.params;
+
+    if (id === req.user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot delete your own active admin account.'
+      });
+    }
+
+    const user = await User.findByIdAndDelete(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User account not found.'
+      });
+    }
+
+    await logAudit({
+      user: req.user,
+      action: 'ADMIN_DELETED_USER_PERMANENTLY',
+      entityType: 'USER',
+      entityId: id,
+      description: `Permanently deleted user account "${user.username}" (${user.fullName})`,
+      req
+    }).catch(() => {});
+
+    return res.json({
+      success: true,
+      message: `User account @${user.username} permanently deleted.`
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getUsers,
   createUser,
   updateUser,
-  disableUser
+  disableUser,
+  deleteUserPermanently
 };
