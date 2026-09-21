@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import AddSchoolModal from '../components/AddSchoolModal';
+import EditSchoolModal from '../components/EditSchoolModal';
 import {
   School,
   Search,
   Plus,
   Upload,
   Power,
+  Edit3,
   CheckCircle2,
   ChevronLeft,
   ChevronRight
@@ -23,6 +25,7 @@ export default function SchoolsPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [editSchool, setEditSchool] = useState(null);
 
   // Bulk Import state
   const [importText, setImportText] = useState('');
@@ -243,7 +246,7 @@ export default function SchoolsPage() {
                 <th className="p-4">District</th>
                 <th className="p-4">Status</th>
                 <th className="p-4">Created By</th>
-                {isAdmin && <th className="p-4 text-center">Toggle Status</th>}
+                {isAdmin && <th className="p-4 text-center">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -272,15 +275,24 @@ export default function SchoolsPage() {
                     <td className="p-4 text-xs text-slate-500">{s.createdByName || 'System'}</td>
                     {isAdmin && (
                       <td className="p-4 text-center">
-                        <button
-                          onClick={() => handleToggleStatus(s)}
-                          className={`p-2 rounded-lg transition ${
-                            s.status === 'ACTIVE' ? 'text-rose-600 hover:bg-rose-50' : 'text-emerald-600 hover:bg-emerald-50'
-                          }`}
-                          title="Toggle Active Status"
-                        >
-                          <Power className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-center space-x-1">
+                          <button
+                            onClick={() => setEditSchool(s)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                            title="Edit School Details"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatus(s)}
+                            className={`p-2 rounded-lg transition ${
+                              s.status === 'ACTIVE' ? 'text-rose-600 hover:bg-rose-50' : 'text-emerald-600 hover:bg-emerald-50'
+                            }`}
+                            title="Toggle Active Status"
+                          >
+                            <Power className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -334,6 +346,13 @@ export default function SchoolsPage() {
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         onSchoolCreated={() => fetchSchools(page, limit, search)}
+      />
+
+      <EditSchoolModal
+        isOpen={!!editSchool}
+        school={editSchool}
+        onClose={() => setEditSchool(null)}
+        onSchoolUpdated={() => fetchSchools(page, limit, search)}
       />
     </div>
   );
