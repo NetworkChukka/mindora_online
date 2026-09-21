@@ -8,7 +8,7 @@ const { broadcastSchoolCreated, broadcastSchoolUpdated } = require('../sockets/s
  */
 async function getSchools(req, res, next) {
   try {
-    const { search = '', status, page = 1, limit = 50 } = req.query;
+    const { search = '', status, page = 1, limit = 50, noCount = 'false', fields = '' } = req.query;
 
     const query = {};
     // Only filter by status if specific ACTIVE or DISABLED is requested (ignore 'ALL')
@@ -29,9 +29,18 @@ async function getSchools(req, res, next) {
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Build select projection from optional comma-separated fields param
+    // e.g. fields=_id,schoolName,city,district reduces payload size significantly
+    const projection = fields.trim()
+      ? fields.trim().split(',').reduce((acc, f) => { acc[f.trim()] = 1; return acc; }, {})
+      : {};
+
+    // Skip expensive countDocuments for dropdown/autocomplete requests
+    const skipCount = noCount === 'true';
     const [schools, total] = await Promise.all([
-      School.find(query).sort({ schoolName: 1 }).skip(skip).limit(parseInt(limit)).lean(),
-      School.countDocuments(query)
+      School.find(query, projection).sort({ schoolName: 1 }).skip(skip).limit(parseInt(limit)).lean(),
+      skipCount ? Promise.resolve(0) : School.countDocuments(query)
     ]);
 
     return res.json({
@@ -41,7 +50,7 @@ async function getSchools(req, res, next) {
         total,
         page: parseInt(page),
         limit: parseInt(limit),
-        pages: Math.ceil(total / parseInt(limit))
+        pages: skipCount ? 1 : Math.ceil(total / parseInt(limit))
       }
     });
   } catch (err) {
