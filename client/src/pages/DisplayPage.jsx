@@ -192,16 +192,6 @@ export default function DisplayPage() {
     }
   }, [activeMilestone]);
 
-  // Auto-dismiss live toast after 5 seconds
-  useEffect(() => {
-    if (recentNotification) {
-      const timer = setTimeout(() => {
-        setRecentNotification(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [recentNotification]);
-
   return (
     <div className="min-h-screen text-white flex flex-col justify-between p-6 md:p-10 font-sans relative overflow-hidden bg-animated-gradient selection:bg-emerald-500">
       {/* Dynamic Keyframe Animations */}
@@ -387,20 +377,6 @@ export default function DisplayPage() {
           )}
         </div>
       </footer>
-
-      {/* Live Registration Incoming Toast */}
-      {recentNotification && (
-        <div className="fixed bottom-24 right-6 z-40 bg-gradient-to-r from-slate-900 to-indigo-950 border-2 border-emerald-500/80 text-white p-4 rounded-2xl shadow-2xl flex items-center space-x-4 max-w-md animate-pop-in">
-          <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl">
-            <Sparkles className="w-6 h-6 animate-spin" />
-          </div>
-          <div className="flex-1">
-            <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">NEW VISITOR REGISTERED</div>
-            <div className="text-sm font-bold text-white">{recentNotification.name}</div>
-            <div className="text-xs text-slate-300 truncate">{recentNotification.school}</div>
-          </div>
-        </div>
-      )}
 
       {/* Milestone Celebration Full-Screen Overlay */}
       {activeMilestone && (
