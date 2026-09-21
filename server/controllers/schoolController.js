@@ -1,7 +1,7 @@
 const School = require('../models/School');
 const StudentRegistration = require('../models/StudentRegistration');
 const TeacherRegistration = require('../models/TeacherRegistration');
-const { normalizeName, toTitleCase } = require('../utils/textNormalizer');
+const { normalizeName } = require('../utils/textNormalizer');
 const { logAudit } = require('../services/auditService');
 const { broadcastSchoolCreated, broadcastSchoolUpdated } = require('../sockets/socketManager');
 
@@ -149,7 +149,7 @@ async function updateSchool(req, res, next) {
       });
     }
 
-    const formattedName = schoolName && schoolName.trim() ? toTitleCase(schoolName) : school.schoolName;
+    const formattedName = schoolName && schoolName.trim() ? schoolName.trim() : school.schoolName;
     const newNormalized = normalizeName(formattedName);
 
     // Check if renaming to a name that ALREADY EXISTS in another school document
@@ -173,8 +173,8 @@ async function updateSchool(req, res, next) {
         ]);
 
         // Update target school details if provided
-        if (city !== undefined && city.trim()) existingTarget.city = toTitleCase(city);
-        if (district !== undefined && district.trim()) existingTarget.district = toTitleCase(district);
+        if (city !== undefined && city.trim()) existingTarget.city = city.trim();
+        if (district !== undefined && district.trim()) existingTarget.district = district.trim();
         if (status !== undefined) existingTarget.status = status;
         await existingTarget.save();
 
@@ -206,8 +206,8 @@ async function updateSchool(req, res, next) {
     school.schoolName = formattedName;
     school.normalizedName = newNormalized;
     if (schoolCode !== undefined) school.schoolCode = schoolCode.trim().toUpperCase();
-    if (city !== undefined) school.city = toTitleCase(city);
-    if (district !== undefined) school.district = toTitleCase(district);
+    if (city !== undefined) school.city = city.trim();
+    if (district !== undefined) school.district = district.trim();
     if (status !== undefined) school.status = status;
 
     await school.save();
