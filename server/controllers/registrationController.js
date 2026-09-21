@@ -61,7 +61,20 @@ async function registerStudent(req, res, next) {
     }
 
     const educationLevel = calculateEducationLevel(grade);
-    const school = await School.findById(schoolId).select('schoolName').lean();
+
+    // Parallelize pre-checks: School lookup, duplicate check, and atomic counter sequence generation!
+    const [school, duplicateCheckResult, registrationNumber] = await Promise.all([
+      School.findById(schoolId).select('schoolName').lean(),
+      !bypassDuplicateCheck
+        ? StudentRegistration.find({
+            schoolId,
+            grade: parseInt(grade),
+            deleted: false
+          }).select('studentName registrationNumber schoolNameSnapshot grade createdAt').limit(30).lean()
+        : Promise.resolve([]),
+      generateRegistrationId('studentSeq', 'MIN', 6)
+    ]);
+
     if (!school) {
       return res.status(404).json({
         success: false,
@@ -69,15 +82,9 @@ async function registerStudent(req, res, next) {
       });
     }
 
-    if (!bypassDuplicateCheck) {
+    if (!bypassDuplicateCheck && duplicateCheckResult.length > 0) {
       const normalizedStudent = normalizeName(studentName);
-      const recentStudents = await StudentRegistration.find({
-        schoolId,
-        grade: parseInt(grade),
-        deleted: false
-      }).select('studentName registrationNumber schoolNameSnapshot grade createdAt').limit(30).lean();
-
-      const possibleMatch = recentStudents.find(s => normalizeName(s.studentName) === normalizedStudent);
+      const possibleMatch = duplicateCheckResult.find(s => normalizeName(s.studentName) === normalizedStudent);
 
       if (possibleMatch) {
         return res.status(409).json({
@@ -95,7 +102,6 @@ async function registerStudent(req, res, next) {
       }
     }
 
-    const registrationNumber = await generateRegistrationId('studentSeq', 'MIN', 6);
     const sanitizedPhone = sanitizePhone(phoneNumber);
 
     const student = await StudentRegistration.create({
@@ -161,7 +167,18 @@ async function registerTeacher(req, res, next) {
       });
     }
 
-    const school = await School.findById(schoolId).select('schoolName').lean();
+    // Parallelize pre-checks: School lookup, duplicate check, and atomic counter sequence generation!
+    const [school, duplicateCheckResult, teacherRegistrationNumber] = await Promise.all([
+      School.findById(schoolId).select('schoolName').lean(),
+      !bypassDuplicateCheck
+        ? TeacherRegistration.find({
+            schoolId,
+            deleted: false
+          }).select('teacherName teacherRegistrationNumber schoolNameSnapshot createdAt').limit(30).lean()
+        : Promise.resolve([]),
+      generateRegistrationId('teacherSeq', 'TCH', 6)
+    ]);
+
     if (!school) {
       return res.status(404).json({
         success: false,
@@ -169,14 +186,9 @@ async function registerTeacher(req, res, next) {
       });
     }
 
-    if (!bypassDuplicateCheck) {
+    if (!bypassDuplicateCheck && duplicateCheckResult.length > 0) {
       const normalizedTeacher = normalizeName(teacherName);
-      const recentTeachers = await TeacherRegistration.find({
-        schoolId,
-        deleted: false
-      }).select('teacherName teacherRegistrationNumber schoolNameSnapshot createdAt').limit(30).lean();
-
-      const possibleMatch = recentTeachers.find(t => normalizeName(t.teacherName) === normalizedTeacher);
+      const possibleMatch = duplicateCheckResult.find(t => normalizeName(t.teacherName) === normalizedTeacher);
 
       if (possibleMatch) {
         return res.status(409).json({
@@ -193,7 +205,6 @@ async function registerTeacher(req, res, next) {
       }
     }
 
-    const teacherRegistrationNumber = await generateRegistrationId('teacherSeq', 'TCH', 6);
     const sanitizedPhone = sanitizePhone(phoneNumber);
 
     const teacher = await TeacherRegistration.create({
