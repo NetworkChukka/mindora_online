@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import confetti from 'canvas-confetti';
-import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import {
   BookOpen,
@@ -93,7 +92,6 @@ function RollingCounter({ value, duration = 1000 }) {
 }
 
 export default function DisplayPage() {
-  const { socket } = useSocket();
   const { isAdmin } = useAuth();
   const [stats, setStats] = useState({
     totalVisitors: 0,
@@ -109,9 +107,6 @@ export default function DisplayPage() {
   // Milestone Celebration state
   const [activeMilestone, setActiveMilestone] = useState(null);
   const prevVisitorsRef = useRef(0);
-
-  // Live Toast State for incoming registrations
-  const [recentNotification, setRecentNotification] = useState(null);
 
   const fetchStats = async () => {
     try {
@@ -180,51 +175,12 @@ export default function DisplayPage() {
 
   useEffect(() => {
     fetchStats();
+    // 10-second automatic stats sync timer
     const interval = setInterval(() => {
       fetchStats();
-    }, 3000);
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
-
-  // Socket.IO real-time listener for updates and notifications
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleUpdate = (newStats) => {
-      const newTotal = newStats.totalVisitors;
-      checkMilestone(newTotal, prevVisitorsRef.current);
-      prevVisitorsRef.current = newTotal;
-      setStats({ ...newStats, lastUpdated: new Date() });
-    };
-
-    const handleStudentCreated = (student) => {
-      setRecentNotification({
-        type: 'STUDENT',
-        name: student.fullName,
-        school: student.schoolNameSnapshot,
-        time: new Date()
-      });
-    };
-
-    const handleTeacherCreated = (teacher) => {
-      setRecentNotification({
-        type: 'TEACHER',
-        name: teacher.fullName,
-        school: teacher.schoolNameSnapshot,
-        time: new Date()
-      });
-    };
-
-    socket.on('dashboard:update', handleUpdate);
-    socket.on('student:created', handleStudentCreated);
-    socket.on('teacher:created', handleTeacherCreated);
-
-    return () => {
-      socket.off('dashboard:update', handleUpdate);
-      socket.off('student:created', handleStudentCreated);
-      socket.off('teacher:created', handleTeacherCreated);
-    };
-  }, [socket]);
 
   // Auto-dismiss milestone overlay after 9 seconds
   useEffect(() => {
@@ -319,7 +275,7 @@ export default function DisplayPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
             </span>
-            <span className="font-bold tracking-wider text-slate-200">REAL-TIME SYNC</span>
+            <span className="font-bold tracking-wider text-slate-200">AUTO SYNC (10S)</span>
           </div>
 
           <div className="text-right hidden sm:block">
