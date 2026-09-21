@@ -1,5 +1,7 @@
 const School = require('../models/School');
-const { normalizeName } = require('../utils/textNormalizer');
+const StudentRegistration = require('../models/StudentRegistration');
+const TeacherRegistration = require('../models/TeacherRegistration');
+const { normalizeName, toTitleCase } = require('../utils/textNormalizer');
 const { logAudit } = require('../services/auditService');
 const { broadcastSchoolCreated, broadcastSchoolUpdated } = require('../sockets/socketManager');
 
@@ -132,7 +134,7 @@ async function createSchool(req, res, next) {
 }
 
 /**
- * Admin Update School
+ * Admin Update / Merge School (Handles Duplicate Merges & Registration Snapshots)
  */
 async function updateSchool(req, res, next) {
   try {
@@ -147,16 +149,82 @@ async function updateSchool(req, res, next) {
       });
     }
 
-    if (schoolName && schoolName.trim()) {
-      school.schoolName = schoolName.trim();
-      school.normalizedName = normalizeName(schoolName);
+    const formattedName = schoolName && schoolName.trim() ? toTitleCase(schoolName) : school.schoolName;
+    const newNormalized = normalizeName(formattedName);
+
+    // Check if renaming to a name that ALREADY EXISTS in another school document
+    if (newNormalized !== school.normalizedName) {
+      const existingTarget = await School.findOne({
+        normalizedName: newNormalized,
+        _id: { $ne: school._id }
+      });
+
+      if (existingTarget) {
+        // DUPLICATE MERGE FLOW: Reassign all student & teacher registrations to target school
+        await Promise.all([
+          StudentRegistration.updateMany(
+            { schoolId: school._id },
+            { $set: { schoolId: existingTarget._id, schoolNameSnapshot: existingTarget.schoolName } }
+          ),
+          TeacherRegistration.updateMany(
+            { schoolId: school._id },
+            { $set: { schoolId: existingTarget._id, schoolNameSnapshot: existingTarget.schoolName } }
+          )
+        ]);
+
+        // Update target school details if provided
+        if (city !== undefined && city.trim()) existingTarget.city = toTitleCase(city);
+        if (district !== undefined && district.trim()) existingTarget.district = toTitleCase(district);
+        if (status !== undefined) existingTarget.status = status;
+        await existingTarget.save();
+
+        // Remove the duplicate old school document
+        await School.findByIdAndDelete(school._id);
+
+        logAudit({
+          user: req.user,
+          action: 'ADMIN_MERGED_SCHOOL',
+          entityType: 'SCHOOL',
+          entityId: existingTarget._id.toString(),
+          description: `Merged duplicate school "${school.schoolName}" into "${existingTarget.schoolName}". All visitor registrations transferred.`,
+          req
+        }).catch(() => {});
+
+        broadcastSchoolUpdated(existingTarget);
+
+        return res.json({
+          success: true,
+          merged: true,
+          message: `Merged "${school.schoolName}" into "${existingTarget.schoolName}". All visitor registrations transferred!`,
+          data: existingTarget
+        });
+      }
     }
-    if (schoolCode !== undefined) school.schoolCode = schoolCode.trim();
-    if (city !== undefined) school.city = city.trim();
-    if (district !== undefined) school.district = district.trim();
+
+    // REGULAR RENAME / EDIT FLOW:
+    const oldName = school.schoolName;
+    school.schoolName = formattedName;
+    school.normalizedName = newNormalized;
+    if (schoolCode !== undefined) school.schoolCode = schoolCode.trim().toUpperCase();
+    if (city !== undefined) school.city = toTitleCase(city);
+    if (district !== undefined) school.district = toTitleCase(district);
     if (status !== undefined) school.status = status;
 
     await school.save();
+
+    // Update schoolNameSnapshot on all existing registrations if school name changed
+    if (oldName !== formattedName) {
+      await Promise.all([
+        StudentRegistration.updateMany(
+          { schoolId: school._id },
+          { $set: { schoolNameSnapshot: formattedName } }
+        ),
+        TeacherRegistration.updateMany(
+          { schoolId: school._id },
+          { $set: { schoolNameSnapshot: formattedName } }
+        )
+      ]);
+    }
 
     logAudit({
       user: req.user,
