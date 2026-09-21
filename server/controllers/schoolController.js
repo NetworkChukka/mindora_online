@@ -160,15 +160,15 @@ async function updateSchool(req, res, next) {
       });
 
       if (existingTarget) {
-        // DUPLICATE MERGE FLOW: Reassign all student & teacher registrations to target school
+        // DUPLICATE MERGE FLOW: Reassign schoolId of registrations to target school (preserve original schoolNameSnapshot)
         await Promise.all([
           StudentRegistration.updateMany(
             { schoolId: school._id },
-            { $set: { schoolId: existingTarget._id, schoolNameSnapshot: existingTarget.schoolName } }
+            { $set: { schoolId: existingTarget._id } }
           ),
           TeacherRegistration.updateMany(
             { schoolId: school._id },
-            { $set: { schoolId: existingTarget._id, schoolNameSnapshot: existingTarget.schoolName } }
+            { $set: { schoolId: existingTarget._id } }
           )
         ]);
 
@@ -186,7 +186,7 @@ async function updateSchool(req, res, next) {
           action: 'ADMIN_MERGED_SCHOOL',
           entityType: 'SCHOOL',
           entityId: existingTarget._id.toString(),
-          description: `Merged duplicate school "${school.schoolName}" into "${existingTarget.schoolName}". All visitor registrations transferred.`,
+          description: `Merged duplicate school "${school.schoolName}" into "${existingTarget.schoolName}".`,
           req
         }).catch(() => {});
 
@@ -195,14 +195,13 @@ async function updateSchool(req, res, next) {
         return res.json({
           success: true,
           merged: true,
-          message: `Merged "${school.schoolName}" into "${existingTarget.schoolName}". All visitor registrations transferred!`,
+          message: `Merged "${school.schoolName}" into "${existingTarget.schoolName}".`,
           data: existingTarget
         });
       }
     }
 
-    // REGULAR RENAME / EDIT FLOW:
-    const oldName = school.schoolName;
+    // REGULAR RENAME / EDIT FLOW: Update ONLY the school record (do not alter existing registration snapshots)
     school.schoolName = formattedName;
     school.normalizedName = newNormalized;
     if (schoolCode !== undefined) school.schoolCode = schoolCode.trim().toUpperCase();
@@ -211,20 +210,6 @@ async function updateSchool(req, res, next) {
     if (status !== undefined) school.status = status;
 
     await school.save();
-
-    // Update schoolNameSnapshot on all existing registrations if school name changed
-    if (oldName !== formattedName) {
-      await Promise.all([
-        StudentRegistration.updateMany(
-          { schoolId: school._id },
-          { $set: { schoolNameSnapshot: formattedName } }
-        ),
-        TeacherRegistration.updateMany(
-          { schoolId: school._id },
-          { $set: { schoolNameSnapshot: formattedName } }
-        )
-      ]);
-    }
 
     logAudit({
       user: req.user,
