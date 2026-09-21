@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useSocket } from '../context/SocketContext';
 import StatCard from '../components/StatCard';
 import {
   Users,
@@ -37,7 +36,6 @@ ChartJS.register(
 );
 
 export default function DashboardPage() {
-  const { latestStats } = useSocket();
   const [stats, setStats] = useState({
     totalVisitors: 0,
     totalStudents: 0,
@@ -78,17 +76,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboardData();
+    // 10-second automatic refresh timer
     const interval = setInterval(() => {
       fetchDashboardData();
-    }, 4000);
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (latestStats) {
-      setStats((prev) => ({ ...prev, ...latestStats }));
-    }
-  }, [latestStats]);
 
   const gradeChartConfig = {
     labels: gradeData.map((g) => g.grade),
