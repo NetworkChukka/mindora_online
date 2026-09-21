@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
 import { Search, Plus, Check, Building2, Loader2, Trophy, Sparkles } from 'lucide-react';
@@ -12,13 +12,12 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Fast school list fetch: noCount skips countDocuments, fields reduces payload size
-  const fetchSchools = useCallback(async (query = '') => {
+  // Fast school list fetch: fetch all active schools once on mount
+  const fetchSchools = useCallback(async () => {
     try {
       setLoading(true);
       const res = await axios.get('/api/schools', {
         params: {
-          search: query,
           limit: 2000,
           status: 'ACTIVE',
           noCount: 'true',
@@ -35,7 +34,7 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
     }
   }, []);
 
-  // Separate stats fetch — called only once on mount (not on every keystroke)
+  // Separate stats fetch — called only once on mount
   const fetchStats = useCallback(async () => {
     try {
       const res = await axios.get('/api/dashboard/schools');
@@ -53,9 +52,9 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
     }
   }, []);
 
-  // On mount: start schools fetch immediately, stats loads in background concurrently
+  // On mount: fetch all active schools and stats concurrently
   useEffect(() => {
-    fetchSchools('');
+    fetchSchools();
     fetchStats();
   }, []);
 
@@ -103,14 +102,6 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
     };
   }, [socket]);
 
-  // Debounced search — only re-fetches the schools list (not stats)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchSchools(searchTerm);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -122,21 +113,39 @@ export default function SchoolSearchDropdown({ selectedSchool, onSelectSchool, o
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Merge schools with their registration counts
-  const schoolsWithCounts = schools.map((s) => {
-    const key = (s.schoolName || '').toLowerCase().trim();
-    return { ...s, visitorCount: schoolCounts[key] || 0 };
-  });
+  // Instant 0ms memory search filtering when typing in searchTerm
+  const filteredSchools = useMemo(() => {
+    if (!searchTerm.trim()) return schools;
+    const term = searchTerm.toLowerCase().trim();
+    return schools.filter(
+      (s) =>
+        (s.schoolName && s.schoolName.toLowerCase().includes(term)) ||
+        (s.city && s.city.toLowerCase().includes(term)) ||
+        (s.district && s.district.toLowerCase().includes(term))
+    );
+  }, [schools, searchTerm]);
+
+  // Merge filtered schools with their registration counts
+  const schoolsWithCounts = useMemo(() => {
+    return filteredSchools.map((s) => {
+      const key = (s.schoolName || '').toLowerCase().trim();
+      return { ...s, visitorCount: schoolCounts[key] || 0 };
+    });
+  }, [filteredSchools, schoolCounts]);
 
   // Top registered schools (most active first)
-  const topRegisteredSchools = schoolsWithCounts
-    .filter((s) => s.visitorCount > 0)
-    .sort((a, b) => b.visitorCount - a.visitorCount);
+  const topRegisteredSchools = useMemo(() => {
+    return schoolsWithCounts
+      .filter((s) => s.visitorCount > 0)
+      .sort((a, b) => b.visitorCount - a.visitorCount);
+  }, [schoolsWithCounts]);
 
   // Remaining schools (alphabetical)
-  const otherSchools = schoolsWithCounts
-    .filter((s) => s.visitorCount === 0)
-    .sort((a, b) => a.schoolName.localeCompare(b.schoolName));
+  const otherSchools = useMemo(() => {
+    return schoolsWithCounts
+      .filter((s) => s.visitorCount === 0)
+      .sort((a, b) => a.schoolName.localeCompare(b.schoolName));
+  }, [schoolsWithCounts]);
 
   return (
     <div className="relative w-full space-y-2" ref={dropdownRef}>
