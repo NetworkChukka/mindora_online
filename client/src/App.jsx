@@ -6,6 +6,7 @@ import ProtectedLayout from './components/ProtectedLayout';
 
 import SetupPage from './pages/SetupPage';
 import LoginPage from './pages/LoginPage';
+import EventHighlightsPage from './pages/EventHighlightsPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import RegistrationsPage from './pages/RegistrationsPage';
@@ -27,7 +28,9 @@ export default function App() {
       <AuthProvider>
         <SocketProvider>
           <Routes>
-            {/* Public Routes */}
+            {/* Public Landing & Public Event Highlights Routes */}
+            <Route path="/" element={<EventHighlightsPage />} />
+            <Route path="/highlights" element={<EventHighlightsPage />} />
             <Route path="/setup" element={<SetupPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/display" element={<DisplayPage />} />
@@ -35,7 +38,6 @@ export default function App() {
 
             {/* Protected Routes (Authentication & RBAC enforced) */}
             <Route element={<ProtectedLayout allowedRoles={['ADMIN', 'REGISTRATION_OPERATOR', 'VIEWER']} />}>
-              <Route path="/" element={<Navigate to="/register" replace />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/registrations" element={<RegistrationsPage />} />
@@ -54,8 +56,8 @@ export default function App() {
               <Route path="/system" element={<SystemStatusPage />} />
             </Route>
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/register" replace />} />
+            {/* Fallback to Event Highlights Landing Page */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </SocketProvider>
       </AuthProvider>
